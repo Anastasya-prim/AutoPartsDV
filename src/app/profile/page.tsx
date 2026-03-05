@@ -13,11 +13,6 @@ const mockUser = {
   registeredAt: "15.03.2026",
 };
 
-const mockStats = {
-  searches: 47,
-  saved: 890,
-};
-
 const mockRecent = [
   { query: "48157-33062", date: "Сегодня, 14:30", results: 5 },
   { query: "90915-YZZD1", date: "Вчера, 09:15", results: 12 },
@@ -38,18 +33,6 @@ export default function ProfilePage() {
             <p className="text-sm text-gray-500">{mockUser.email}</p>
             <p className="text-xs text-gray-400 mt-0.5">Зарегистрирован: {mockUser.registeredAt}</p>
           </div>
-        </div>
-      </div>
-
-      {/* ── Статистика ── */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
-          <p className="text-2xl sm:text-3xl font-extrabold text-blue-600">{mockStats.searches}</p>
-          <p className="text-sm text-gray-500 mt-1">Поисков за месяц</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
-          <p className="text-2xl sm:text-3xl font-extrabold text-green-600">{mockStats.saved.toLocaleString("ru-RU")} ₽</p>
-          <p className="text-sm text-gray-500 mt-1">Сэкономлено</p>
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { mockResults } from "@/lib/mock-data";
 
@@ -13,7 +13,11 @@ import { mockResults } from "@/lib/mock-data";
 
 export default function PartPage() {
   const { article } = useParams<{ article: string }>();
+  const searchParams = useSearchParams();
   const decoded = decodeURIComponent(article);
+
+  // Определяем, к какому поисковому запросу вернуться
+  const fromQuery = searchParams.get("from") || decoded;
 
   const offers = useMemo(
     () => mockResults.filter((r) => r.article === decoded),
@@ -37,8 +41,11 @@ export default function PartPage() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:py-8">
       {/* ── Навигация ── */}
-      <Link href="/search" className="text-blue-600 hover:underline text-sm mb-4 inline-block">
-        &larr; Назад к результатам
+      <Link
+        href={`/search?q=${encodeURIComponent(fromQuery)}`}
+        className="text-blue-600 hover:underline text-sm mb-4 inline-block"
+      >
+        &larr; Назад к &laquo;{fromQuery}&raquo;
       </Link>
 
       {/* ── Заголовок ── */}

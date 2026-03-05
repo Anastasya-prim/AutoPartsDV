@@ -124,14 +124,14 @@ export default function SearchPage() {
         </div>
       )}
 
-      {exact.length > 0 && <ResultSection title="Точные совпадения" results={exact} />}
-      {analogs.length > 0 && <ResultSection title="Аналоги и заменители" results={analogs} />}
+      {exact.length > 0 && <ResultSection title="Точные совпадения" results={exact} query={query} />}
+      {analogs.length > 0 && <ResultSection title="Аналоги и заменители" results={analogs} query={query} />}
     </div>
   );
 }
 
 /* ── Секция результатов: десктоп = таблица, мобильный = карточки ── */
-function ResultSection({ title, results }: { title: string; results: SearchResult[] }) {
+function ResultSection({ title, results, query }: { title: string; results: SearchResult[]; query: string }) {
   return (
     <div className="mb-8">
       <h2 className="text-lg font-semibold mb-3 text-gray-700">{title}</h2>
@@ -157,7 +157,7 @@ function ResultSection({ title, results }: { title: string; results: SearchResul
               <span className="font-medium">{r.supplier.name}</span>
             </div>
             <span className="text-gray-600">{r.brand}</span>
-            <Link href={`/part/${r.article}`} className="text-blue-600 hover:underline truncate">
+            <Link href={`/part/${r.article}?from=${encodeURIComponent(query)}`} className="text-blue-600 hover:underline truncate">
               {r.name}
             </Link>
             <span className="text-gray-500 font-mono text-xs">{r.article}</span>
@@ -185,7 +185,7 @@ function ResultSection({ title, results }: { title: string; results: SearchResul
                 {r.inStock ? `${r.quantity} шт` : `${r.deliveryDays} дн.`}
               </span>
             </div>
-            <Link href={`/part/${r.article}`} className="text-blue-600 hover:underline text-sm block mb-1">
+            <Link href={`/part/${r.article}?from=${encodeURIComponent(query)}`} className="text-blue-600 hover:underline text-sm block mb-1">
               {r.name}
             </Link>
             <div className="flex items-center justify-between text-xs text-gray-500">
