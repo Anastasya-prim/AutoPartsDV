@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { api, isLoggedIn } from "@/lib/api";
+import { api, isLoggedIn, removeToken } from "@/lib/api";
 
 interface HistoryItem {
   id: string;
@@ -43,14 +43,29 @@ export default function HistoryPage() {
   const [error, setError] = useState("");
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [clearing, setClearing] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
 
   useEffect(() => {
-    if (!isLoggedIn()) { router.push("/login"); return; }
+    if (!isLoggedIn()) {
+      setRedirecting(true);
+      router.replace("/login");
+      return;
+    }
 
     let cancelled = false;
     api<{ history: HistoryItem[] }>("/history", { auth: true })
       .then((data) => { if (!cancelled) setHistory(data.history); })
-      .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : "Ошибка"); })
+      .catch((err) => {
+        if (cancelled) return;
+        const msg = err instanceof Error ? err.message : "Ошибка";
+        if (msg.includes("401") || msg.includes("Unauthorized") || msg.includes("токен")) {
+          removeToken();
+          setRedirecting(true);
+          router.replace("/login");
+          return;
+        }
+        setError(msg);
+      })
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
@@ -68,6 +83,14 @@ export default function HistoryPage() {
     } finally {
       setClearing(false);
     }
+  }
+
+  if (redirecting) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-8 sm:py-10 text-center text-gray-500">
+        Перенаправление на страницу входа...
+      </div>
+    );
   }
 
   if (loading) {

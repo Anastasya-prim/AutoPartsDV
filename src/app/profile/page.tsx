@@ -26,10 +26,20 @@ export default function ProfilePage() {
   const [error, setError] = useState("");
   const [user, setUser] = useState<User | null>(null);
   const [recent, setRecent] = useState<HistoryItem[]>([]);
+  const [redirecting, setRedirecting] = useState(false);
+
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [pwLoading, setPwLoading] = useState(false);
+  const [pwError, setPwError] = useState("");
+  const [pwSuccess, setPwSuccess] = useState("");
 
   useEffect(() => {
     if (!isLoggedIn()) {
-      router.push("/login");
+      setRedirecting(true);
+      router.replace("/login");
       return;
     }
 
@@ -46,7 +56,14 @@ export default function ProfilePage() {
         setRecent(historyData.history.slice(0, 5));
       } catch (err) {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Ошибка загрузки");
+        const msg = err instanceof Error ? err.message : "Ошибка загрузки";
+        if (msg.includes("401") || msg.includes("Unauthorized") || msg.includes("токен")) {
+          removeToken();
+          setRedirecting(true);
+          router.replace("/login");
+          return;
+        }
+        setError(msg);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -58,6 +75,41 @@ export default function ProfilePage() {
   function handleLogout() {
     removeToken();
     router.push("/login");
+  }
+
+  async function handleChangePassword() {
+    setPwError("");
+    setPwSuccess("");
+
+    if (!currentPassword) { setPwError("Введите текущий пароль"); return; }
+    if (newPassword.length < 6) { setPwError("Новый пароль — минимум 6 символов"); return; }
+    if (newPassword !== confirmPassword) { setPwError("Пароли не совпадают"); return; }
+
+    setPwLoading(true);
+    try {
+      await api<{ message: string }>("/auth/password", {
+        method: "PUT",
+        body: { currentPassword, newPassword },
+        auth: true,
+      });
+      setPwSuccess("Пароль успешно изменён");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setTimeout(() => setShowPasswordForm(false), 1500);
+    } catch (err) {
+      setPwError(err instanceof Error ? err.message : "Ошибка смены пароля");
+    } finally {
+      setPwLoading(false);
+    }
+  }
+
+  if (redirecting) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-8 sm:py-10 text-center text-gray-500">
+        Перенаправление на страницу входа...
+      </div>
+    );
   }
 
   if (loading) {
@@ -141,7 +193,7 @@ export default function ProfilePage() {
       </div>
 
       {/* ── Навигация ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <Link
           href="/profile/history"
           className="bg-white rounded-xl border border-gray-200 p-5 hover:border-blue-300 hover:shadow-sm transition-all flex items-center justify-between"
@@ -153,6 +205,16 @@ export default function ProfilePage() {
           <span className="text-gray-400 text-xl">→</span>
         </Link>
         <button
+          onClick={() => { setShowPasswordForm(!showPasswordForm); setPwError(""); setPwSuccess(""); }}
+          className="bg-white rounded-xl border border-gray-200 p-5 hover:border-blue-300 hover:shadow-sm transition-all flex items-center justify-between text-left w-full"
+        >
+          <div>
+            <p className="font-semibold">Сменить пароль</p>
+            <p className="text-sm text-gray-500 mt-0.5">Безопасность</p>
+          </div>
+          <span className="text-gray-400 text-xl">{showPasswordForm ? "↑" : "→"}</span>
+        </button>
+        <button
           onClick={handleLogout}
           className="bg-white rounded-xl border border-gray-200 p-5 hover:border-red-300 hover:shadow-sm transition-all flex items-center justify-between text-left w-full"
         >
@@ -163,6 +225,64 @@ export default function ProfilePage() {
           <span className="text-gray-400 text-xl">→</span>
         </button>
       </div>
+
+      {/* ── Смена пароля ── */}
+      {showPasswordForm && (
+        <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6 mb-8">
+          <h2 className="text-lg font-semibold mb-4">Смена пароля</h2>
+
+          {pwSuccess && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4 text-sm text-green-700">
+              {pwSuccess}
+            </div>
+          )}
+          {pwError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-sm text-red-700">
+              {pwError}
+            </div>
+          )}
+
+          <div className="space-y-3 max-w-sm">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Текущий пароль</label>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Введите текущий пароль"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Новый пароль</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Минимум 6 символов"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Подтвердите новый пароль</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Повторите новый пароль"
+              />
+            </div>
+            <button
+              onClick={handleChangePassword}
+              disabled={pwLoading}
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors"
+            >
+              {pwLoading ? "Сохранение..." : "Сменить пароль"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Последние поиски ── */}
       <h2 className="text-lg font-semibold mb-3">Последние поиски</h2>

@@ -42,6 +42,7 @@ async function main() {
     console.log(`\nЭндпоинты:`);
     console.log(`  POST   /api/auth/register`);
     console.log(`  POST   /api/auth/login`);
+    console.log(`  PUT    /api/auth/password`);
     console.log(`  GET    /api/profile`);
     console.log(`  PUT    /api/profile`);
     console.log(`  GET    /api/search?q=...`);

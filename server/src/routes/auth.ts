@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import { v4 as uuid } from "uuid";
 import { queryOne, execute } from "../database";
-import { generateToken } from "../middleware/auth";
+import { AuthRequest, generateToken, requireAuth } from "../middleware/auth";
 
 const router = Router();
 
@@ -72,6 +72,36 @@ router.post("/login", (req: Request, res: Response): void => {
 
   const token = generateToken({ userId: user.id as string, role: user.role as string });
   res.json({ user: formatUser(user), token });
+});
+
+// PUT /api/auth/password
+router.put("/password", requireAuth, (req: AuthRequest, res: Response): void => {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || typeof currentPassword !== "string") {
+    res.status(400).json({ error: "Укажите текущий пароль" });
+    return;
+  }
+  if (!newPassword || typeof newPassword !== "string" || newPassword.length < 6) {
+    res.status(400).json({ error: "Новый пароль должен быть не менее 6 символов" });
+    return;
+  }
+
+  const user = queryOne("SELECT * FROM users WHERE id = ?", [req.user!.userId]);
+  if (!user) {
+    res.status(404).json({ error: "Пользователь не найден" });
+    return;
+  }
+
+  if (!bcrypt.compareSync(currentPassword, user.password_hash as string)) {
+    res.status(401).json({ error: "Неверный текущий пароль" });
+    return;
+  }
+
+  const newHash = bcrypt.hashSync(newPassword, 10);
+  execute("UPDATE users SET password_hash = ? WHERE id = ?", [newHash, req.user!.userId]);
+
+  res.json({ message: "Пароль успешно изменён" });
 });
 
 export default router;

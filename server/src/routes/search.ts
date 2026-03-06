@@ -1,7 +1,7 @@
 import { Router, Response } from "express";
 import { v4 as uuid } from "uuid";
 import { AuthRequest, optionalAuth } from "../middleware/auth";
-import { queryAll, execute } from "../database";
+import { queryAll, queryOne, execute } from "../database";
 
 const router = Router();
 
@@ -60,10 +60,18 @@ router.get("/", optionalAuth, (req: AuthRequest, res: Response): void => {
   const analogs = results.filter((r) => r.isAnalog);
 
   if (req.user) {
-    execute(
-      "INSERT INTO search_history (id, user_id, query, results_count, created_at) VALUES (?, ?, ?, ?, ?)",
-      [uuid(), req.user.userId, q, results.length, new Date().toISOString()]
+    const now = new Date();
+    const fiveSecondsAgo = new Date(now.getTime() - 5000).toISOString();
+    const duplicate = queryOne(
+      "SELECT id FROM search_history WHERE user_id = ? AND query = ? AND created_at > ?",
+      [req.user.userId, q, fiveSecondsAgo]
     );
+    if (!duplicate) {
+      execute(
+        "INSERT INTO search_history (id, user_id, query, results_count, created_at) VALUES (?, ?, ?, ?, ?)",
+        [uuid(), req.user.userId, q, results.length, now.toISOString()]
+      );
+    }
   }
 
   res.json({ query: q, total: results.length, exact, analogs });
