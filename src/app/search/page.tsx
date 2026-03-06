@@ -1,23 +1,49 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { Suspense, useState, useMemo, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { searchParts, suppliers } from "@/lib/mock-data";
-import type { SearchResult } from "@/lib/types";
-
-/* ============================================================
-   Страница результатов поиска /search?q=...
-   Поддерживает 3 состояния: loading, error, success.
-   Loading имитируется через setTimeout с поочерёдным ответом
-   от каждого поставщика.
-   ============================================================ */
+import { api } from "@/lib/api";
+import type { SearchResult, Supplier } from "@/lib/types";
 
 type SortKey = "price" | "quantity" | "deliveryDays" | "supplier";
 
-type SupplierStatus = "pending" | "loading" | "done" | "error";
+interface SearchResponse {
+  query: string;
+  total: number;
+  exact: SearchResult[];
+  analogs: SearchResult[];
+}
+
+interface SuppliersResponse {
+  suppliers: Supplier[];
+}
 
 export default function SearchPage() {
+  return (
+    <Suspense fallback={<SearchSkeleton />}>
+      <SearchContent />
+    </Suspense>
+  );
+}
+
+function SearchSkeleton() {
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-6 sm:py-8">
+      <div className="flex gap-2 mb-6">
+        <div className="flex-1 h-11 bg-gray-200 rounded-xl animate-pulse" />
+        <div className="w-24 h-11 bg-gray-200 rounded-xl animate-pulse" />
+      </div>
+      <div className="space-y-3">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 h-24 animate-pulse" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SearchContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const query = searchParams.get("q") || "";
@@ -29,71 +55,35 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
-  const [supplierStatuses, setSupplierStatuses] = useState<Record<string, SupplierStatus>>({});
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
 
-  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-
-  // Запуск поиска при загрузке страницы или изменении query
   useEffect(() => {
     if (!query.trim()) return;
 
-    // Очищаем предыдущие таймеры, чтобы не было дубликатов
-    timersRef.current.forEach(clearTimeout);
-    timersRef.current = [];
-
+    let cancelled = false;
     setLoading(true);
     setError("");
     setResults([]);
 
-    const initial: Record<string, SupplierStatus> = {};
-    suppliers.forEach((s) => { initial[s.id] = "pending"; });
-    setSupplierStatuses(initial);
+    (async () => {
+      try {
+        const [searchData, suppliersData] = await Promise.all([
+          api<SearchResponse>(`/search?q=${encodeURIComponent(query)}`, { auth: true }),
+          api<SuppliersResponse>("/suppliers"),
+        ]);
 
-    const allResults = searchParts(query);
-    const activeSuppliers = suppliers.filter((s) => s.status !== "maintenance");
+        if (cancelled) return;
+        setResults([...searchData.exact, ...searchData.analogs]);
+        setSuppliers(suppliersData.suppliers);
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Не удалось выполнить поиск");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
 
-    activeSuppliers.forEach((supplier, i) => {
-      const delay = 400 + i * 300 + Math.random() * 200;
-
-      timersRef.current.push(
-        setTimeout(() => {
-          setSupplierStatuses((prev) => ({ ...prev, [supplier.id]: "loading" }));
-        }, i * 250)
-      );
-
-      timersRef.current.push(
-        setTimeout(() => {
-          const supplierResults = allResults.filter((r) => r.supplier.id === supplier.id);
-          setResults((prev) => {
-            const existing = new Set(prev.map((r) => r.id));
-            const unique = supplierResults.filter((r) => !existing.has(r.id));
-            return [...prev, ...unique];
-          });
-          setSupplierStatuses((prev) => ({ ...prev, [supplier.id]: "done" }));
-        }, delay)
-      );
-    });
-
-    const maintenanceSuppliers = suppliers.filter((s) => s.status === "maintenance");
-    maintenanceSuppliers.forEach((s) => {
-      timersRef.current.push(
-        setTimeout(() => {
-          setSupplierStatuses((prev) => ({ ...prev, [s.id]: "error" }));
-        }, 800)
-      );
-    });
-
-    const totalTime = 400 + activeSuppliers.length * 300 + 300;
-    timersRef.current.push(
-      setTimeout(() => {
-        setLoading(false);
-      }, totalTime)
-    );
-
-    return () => {
-      timersRef.current.forEach(clearTimeout);
-      timersRef.current = [];
-    };
+    return () => { cancelled = true; };
   }, [query]);
 
   const filtered = useMemo(() => {
@@ -117,9 +107,6 @@ export default function SearchPage() {
     }
   }
 
-  const doneCount = Object.values(supplierStatuses).filter((s) => s === "done").length;
-  const totalCount = suppliers.length;
-
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 sm:py-8">
       {/* ── Строка поиска ── */}
@@ -141,50 +128,42 @@ export default function SearchPage() {
       </form>
 
       {/* ── Статусы поставщиков ── */}
-      {query && (
+      {query && suppliers.length > 0 && (
         <div className="mb-6">
           <div className="flex flex-wrap gap-2 text-xs">
-            {suppliers.map((s) => {
-              const status = supplierStatuses[s.id] || "pending";
-              return (
-                <span
-                  key={s.id}
-                  className={`px-2.5 py-1 rounded-full font-medium transition-all ${
-                    status === "done"
-                      ? "bg-green-100 text-green-700"
-                      : status === "loading"
+            {suppliers.map((s) => (
+              <span
+                key={s.id}
+                className={`px-2.5 py-1 rounded-full font-medium transition-all ${
+                  s.status === "online"
+                    ? loading
                       ? "bg-blue-100 text-blue-600 animate-pulse"
-                      : status === "error"
-                      ? "bg-red-100 text-red-600"
-                      : "bg-gray-100 text-gray-400"
-                  }`}
-                >
-                  {status === "done" && "✓ "}
-                  {status === "loading" && "⏳ "}
-                  {status === "error" && "✗ "}
-                  {s.name}
-                </span>
-              );
-            })}
+                      : "bg-green-100 text-green-700"
+                    : s.status === "maintenance"
+                    ? "bg-red-100 text-red-600"
+                    : "bg-gray-100 text-gray-400"
+                }`}
+              >
+                {!loading && s.status === "online" && "✓ "}
+                {loading && s.status === "online" && "⏳ "}
+                {s.status === "maintenance" && "✗ "}
+                {s.name}
+              </span>
+            ))}
           </div>
           {loading && (
             <div className="mt-3">
               <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-blue-500 rounded-full transition-all duration-500"
-                  style={{ width: `${(doneCount / totalCount) * 100}%` }}
-                />
+                <div className="h-full bg-blue-500 rounded-full animate-pulse w-2/3" />
               </div>
-              <p className="text-xs text-gray-400 mt-1">
-                Получены ответы от {doneCount} из {totalCount} поставщиков...
-              </p>
+              <p className="text-xs text-gray-400 mt-1">Загрузка результатов...</p>
             </div>
           )}
         </div>
       )}
 
       {/* ── Заголовок и статистика ── */}
-      {!loading && query && (
+      {!loading && !error && query && (
         <div className="mb-4">
           <h1 className="text-xl sm:text-2xl font-bold">
             Результаты: <span className="text-blue-600">&laquo;{query}&raquo;</span>
@@ -212,7 +191,7 @@ export default function SearchPage() {
               <p className="font-medium text-red-700">Ошибка загрузки</p>
               <p className="text-sm text-red-600 mt-1">{error}</p>
               <button
-                onClick={() => { setResults([]); router.push(`/search?q=${encodeURIComponent(query)}&t=${Date.now()}`); }}
+                onClick={() => { setError(""); router.push(`/search?q=${encodeURIComponent(query)}&t=${Date.now()}`); }}
                 className="mt-3 text-sm bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-lg transition-colors"
               >
                 Повторить
@@ -244,7 +223,7 @@ export default function SearchPage() {
         </div>
       )}
 
-      {/* ── Фильтры и сортировка (только когда есть результаты) ── */}
+      {/* ── Фильтры и сортировка ── */}
       {!loading && results.length > 0 && (
         <div className="flex flex-col sm:flex-row gap-3 sm:items-center mb-6 text-sm">
           <label className="flex items-center gap-2 cursor-pointer">
@@ -256,7 +235,6 @@ export default function SearchPage() {
             />
             Только в наличии
           </label>
-
           <div className="flex gap-1 sm:ml-auto overflow-x-auto">
             {([
               ["price", "Цена"],
@@ -281,7 +259,7 @@ export default function SearchPage() {
       )}
 
       {/* ── Нет результатов ── */}
-      {!loading && query && results.length === 0 && (
+      {!loading && !error && query && results.length === 0 && (
         <div className="text-center py-16 sm:py-20 text-gray-400">
           <p className="text-5xl mb-4">🔍</p>
           <p className="text-lg font-medium">Ничего не найдено</p>
@@ -304,7 +282,6 @@ export default function SearchPage() {
   );
 }
 
-/* ── Секция результатов: десктоп = таблица, мобильный = карточки ── */
 function ResultSection({ title, results, query }: { title: string; results: SearchResult[]; query: string }) {
   return (
     <div className="mb-8">
@@ -367,12 +344,7 @@ function ResultSection({ title, results, query }: { title: string; results: Sear
             </div>
             <div className="flex items-center justify-between mt-3">
               <span className="text-lg font-bold">{r.price.toLocaleString("ru-RU")}&nbsp;₽</span>
-              <a
-                href={r.supplier.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
+              <a href={r.supplier.url} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                 На сайт ↗
               </a>
             </div>

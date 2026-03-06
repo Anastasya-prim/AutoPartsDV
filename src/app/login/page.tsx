@@ -3,19 +3,21 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { api, setToken } from "@/lib/api";
 
-/* ============================================================
-   Страница входа /login
-   Моковая — просто принимает любые данные и редиректит в /profile.
-   ============================================================ */
+interface AuthResponse {
+  user: { id: string; name: string; email: string; role: string; registeredAt: string };
+  token: string;
+}
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
 
@@ -24,8 +26,19 @@ export default function LoginPage() {
       return;
     }
 
-    // Моковая авторизация — принимаем любые данные
-    router.push("/profile");
+    setLoading(true);
+    try {
+      const data = await api<AuthResponse>("/auth/login", {
+        method: "POST",
+        body: { email, password },
+      });
+      setToken(data.token);
+      router.push("/profile");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка входа");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -64,9 +77,10 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
+            disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 rounded-xl transition-colors"
           >
-            Войти
+            {loading ? "Входим..." : "Войти"}
           </button>
         </form>
 

@@ -2,11 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { popularQueries } from "@/lib/mock-data";
 
-/* ============================================================
-   Главная страница — Hero-блок с поиском и блок «Как это работает».
-   ============================================================ */
+const popularQueries = ["48157-33062", "90915-YZZD1", "04465-33471"];
 
 export default function HomePage() {
   const [query, setQuery] = useState("");
@@ -21,7 +18,6 @@ export default function HomePage() {
 
   return (
     <>
-      {/* ── Hero-секция с поиском (светлый фон) ── */}
       <section className="bg-white py-16 sm:py-24 px-4">
         <div className="max-w-2xl mx-auto text-center">
           <h1 className="text-3xl sm:text-5xl font-extrabold text-gray-900 mb-3">
@@ -49,7 +45,7 @@ export default function HomePage() {
 
           <div className="mt-5 flex flex-wrap justify-center gap-2 text-sm">
             <span className="text-gray-400">Примеры:</span>
-            {popularQueries.slice(0, 3).map((q) => (
+            {popularQueries.map((q) => (
               <button
                 key={q}
                 onClick={() => router.push(`/search?q=${q}`)}
@@ -62,7 +58,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Как это работает ── */}
       <section className="max-w-5xl mx-auto px-4 py-12 sm:py-16">
         <h2 className="text-xl sm:text-2xl font-bold text-center mb-8 sm:mb-10">Как это работает</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 text-center">

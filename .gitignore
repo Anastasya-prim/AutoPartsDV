@@ -4,3 +4,9 @@ node_modules/
 .env.local
 *.tsbuildinfo
 next-env.d.ts
+
+# Server
+server/node_modules/
+server/dist/
+server/.env
+server/*.db

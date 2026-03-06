@@ -1,46 +1,113 @@
 "use client";
 
-import { useMemo } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { mockResults } from "@/lib/mock-data";
+import { api } from "@/lib/api";
+import type { SearchResult } from "@/lib/types";
 
-/* ============================================================
-   Карточка запчасти /part/[article]
-   Все предложения по артикулу + аналоги.
-   Адаптивная: карточки на мобильных.
-   ============================================================ */
+interface PartResponse {
+  article: string;
+  offers: SearchResult[];
+  analogs: SearchResult[];
+}
 
 export default function PartPage() {
+  return (
+    <Suspense fallback={
+      <div className="max-w-5xl mx-auto px-4 py-6 sm:py-8">
+        <div className="animate-pulse space-y-4">
+          <div className="h-4 w-32 bg-gray-200 rounded" />
+          <div className="bg-white rounded-xl border border-gray-200 p-6 h-32" />
+          <div className="bg-white rounded-xl border border-gray-200 p-4 h-20" />
+          <div className="bg-white rounded-xl border border-gray-200 p-4 h-20" />
+        </div>
+      </div>
+    }>
+      <PartContent />
+    </Suspense>
+  );
+}
+
+function PartContent() {
   const { article } = useParams<{ article: string }>();
   const searchParams = useSearchParams();
   const decoded = decodeURIComponent(article);
-
-  // Определяем, к какому поисковому запросу вернуться
   const fromQuery = searchParams.get("from") || decoded;
 
-  const offers = useMemo(
-    () => mockResults.filter((r) => r.article === decoded),
-    [decoded]
-  );
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [offers, setOffers] = useState<SearchResult[]>([]);
+  const [analogs, setAnalogs] = useState<SearchResult[]>([]);
 
-  const analogs = useMemo(() => {
-    const originalArticle = offers[0]?.isAnalog ? offers[0].analogFor : decoded;
-    return mockResults.filter(
-      (r) => r.isAnalog && r.analogFor === originalArticle && r.article !== decoded
-    );
-  }, [decoded, offers]);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError("");
 
-  const bestPrice = offers.length
-    ? Math.min(...offers.map((r) => r.price))
-    : null;
+    api<PartResponse>(`/parts/${encodeURIComponent(decoded)}`)
+      .then((data) => {
+        if (cancelled) return;
+        setOffers(data.offers);
+        setAnalogs(data.analogs);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        if (err instanceof Error && err.message.includes("не найдено")) {
+          setOffers([]);
+          setAnalogs([]);
+        } else {
+          setError(err instanceof Error ? err.message : "Ошибка загрузки");
+        }
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
 
+    return () => { cancelled = true; };
+  }, [decoded]);
+
+  const bestPrice = offers.length ? Math.min(...offers.map((r) => r.price)) : null;
   const partName = offers[0]?.name || "Запчасть";
   const partBrand = offers[0]?.brand || "";
 
+  if (loading) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-6 sm:py-8">
+        <div className="animate-pulse space-y-4">
+          <div className="h-4 w-32 bg-gray-200 rounded" />
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="h-6 w-48 bg-gray-200 rounded mb-3" />
+            <div className="h-8 w-64 bg-gray-200 rounded mb-2" />
+            <div className="h-4 w-80 bg-gray-200 rounded" />
+          </div>
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 h-20" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-6 sm:py-8">
+        <Link href={`/search?q=${encodeURIComponent(fromQuery)}`} className="text-blue-600 hover:underline text-sm mb-4 inline-block">
+          &larr; Назад к &laquo;{fromQuery}&raquo;
+        </Link>
+        <div className="bg-red-50 border border-red-200 rounded-xl p-5">
+          <div className="flex items-start gap-3">
+            <span className="text-red-500 text-xl shrink-0">⚠</span>
+            <div>
+              <p className="font-medium text-red-700">Ошибка загрузки</p>
+              <p className="text-sm text-red-600 mt-1">{error}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:py-8">
-      {/* ── Навигация ── */}
       <Link
         href={`/search?q=${encodeURIComponent(fromQuery)}`}
         className="text-blue-600 hover:underline text-sm mb-4 inline-block"
@@ -70,9 +137,8 @@ export default function PartPage() {
         <div className="mb-6 sm:mb-8">
           <h2 className="text-lg font-semibold mb-3">Предложения ({offers.length})</h2>
           <div className="space-y-3 sm:space-y-0">
-            {/* Десктоп — список */}
             <div className="hidden sm:block bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-              {offers
+              {[...offers]
                 .sort((a, b) => a.price - b.price)
                 .map((r) => (
                   <div key={r.id} className="flex items-center justify-between gap-3 px-5 py-4 hover:bg-blue-50/30 transition-colors">
@@ -96,9 +162,8 @@ export default function PartPage() {
                 ))}
             </div>
 
-            {/* Мобильный — карточки */}
             <div className="sm:hidden space-y-3">
-              {offers
+              {[...offers]
                 .sort((a, b) => a.price - b.price)
                 .map((r) => (
                   <div key={r.id} className="bg-white rounded-xl border border-gray-200 p-4">

@@ -1,12 +1,59 @@
-import { suppliers } from "@/lib/mock-data";
+"use client";
 
-/* ============================================================
-   Страница «Поставщики» /suppliers
-   Скрыта от навигации — ссылок на неё пока нет.
-   Доступна напрямую по URL.
-   ============================================================ */
+import { useState, useEffect } from "react";
+import { api } from "@/lib/api";
+import type { Supplier } from "@/lib/types";
+
+interface SuppliersResponse {
+  suppliers: Supplier[];
+}
 
 export default function SuppliersPage() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    api<SuppliersResponse>("/suppliers")
+      .then((data) => { if (!cancelled) setSuppliers(data.suppliers); })
+      .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : "Ошибка"); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-8 sm:py-10">
+        <div className="h-8 w-48 bg-gray-200 rounded mb-2 animate-pulse" />
+        <div className="h-4 w-80 bg-gray-200 rounded mb-8 animate-pulse" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="bg-white rounded-xl border border-gray-200 p-5 h-40 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-8 sm:py-10">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-5">
+          <div className="flex items-start gap-3">
+            <span className="text-red-500 text-xl shrink-0">⚠</span>
+            <div>
+              <p className="font-medium text-red-700">Не удалось загрузить поставщиков</p>
+              <p className="text-sm text-red-600 mt-1">{error}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 sm:py-10">
       <h1 className="text-2xl sm:text-3xl font-bold mb-2">Поставщики</h1>

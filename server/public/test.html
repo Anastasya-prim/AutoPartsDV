@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutoPartsDV — Тест API</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f3f4f6; color: #1f2937; padding: 20px; }
+    h1 { font-size: 24px; margin-bottom: 6px; }
+    .subtitle { color: #6b7280; margin-bottom: 24px; font-size: 14px; }
+    .token-bar { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-bottom: 24px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .token-bar label { font-weight: 600; font-size: 13px; white-space: nowrap; }
+    .token-bar input { flex: 1; min-width: 200px; padding: 8px 12px; border: 2px solid #d1d5db; border-radius: 8px; font-size: 13px; font-family: monospace; }
+    .token-bar .indicator { width: 10px; height: 10px; border-radius: 50%; background: #ef4444; flex-shrink: 0; }
+    .token-bar .indicator.active { background: #22c55e; }
+    section { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+    section h2 { font-size: 16px; margin-bottom: 4px; }
+    section .desc { font-size: 13px; color: #6b7280; margin-bottom: 14px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; margin-bottom: 10px; }
+    .field { display: flex; flex-direction: column; gap: 3px; }
+    .field label { font-size: 12px; font-weight: 500; color: #374151; }
+    .field input, .field select { padding: 7px 10px; border: 2px solid #d1d5db; border-radius: 8px; font-size: 13px; min-width: 140px; }
+    button { padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
+    .btn-blue { background: #2563eb; color: #fff; }
+    .btn-blue:hover { background: #1d4ed8; }
+    .btn-green { background: #16a34a; color: #fff; }
+    .btn-green:hover { background: #15803d; }
+    .btn-orange { background: #ea580c; color: #fff; }
+    .btn-orange:hover { background: #c2410c; }
+    .btn-red { background: #dc2626; color: #fff; }
+    .btn-red:hover { background: #b91c1c; }
+    .btn-gray { background: #6b7280; color: #fff; }
+    .btn-gray:hover { background: #4b5563; }
+    .result { margin-top: 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 400px; overflow-y: auto; display: none; }
+    .result.visible { display: block; }
+    .result .status { font-weight: 700; margin-bottom: 6px; }
+    .result .status.ok { color: #16a34a; }
+    .result .status.err { color: #dc2626; }
+    .divider { border: none; border-top: 1px solid #e5e7eb; margin: 10px 0; }
+  </style>
+</head>
+<body>
+
+<h1>AutoPartsDV — Тест API</h1>
+<p class="subtitle">Нажми кнопку — увидишь ответ сервера в JSON</p>
+
+<!-- Токен -->
+<div class="token-bar">
+  <div class="indicator" id="tokenIndicator"></div>
+  <label>JWT Token:</label>
+  <input type="text" id="tokenInput" placeholder="Зарегистрируйся или войди — токен появится здесь" readonly>
+  <button class="btn-gray" onclick="clearToken()">Сбросить</button>
+</div>
+
+<!-- Health -->
+<section>
+  <h2>Health Check</h2>
+  <p class="desc">GET /api/health</p>
+  <button class="btn-blue" onclick="apiGet('/api/health', 'resHealth')">Проверить</button>
+  <div class="result" id="resHealth"></div>
+</section>
+
+<!-- Регистрация -->
+<section>
+  <h2>Регистрация</h2>
+  <p class="desc">POST /api/auth/register — создаёт пользователя и возвращает токен</p>
+  <div class="row">
+    <div class="field"><label>Имя</label><input id="regName" value="Иван Петров"></div>
+    <div class="field"><label>Email</label><input id="regEmail" value="ivan@mail.ru"></div>
+    <div class="field"><label>Пароль</label><input id="regPass" value="secret123"></div>
+    <button class="btn-green" onclick="doRegister()">Зарегистрироваться</button>
+  </div>
+  <div class="result" id="resRegister"></div>
+</section>
+
+<!-- Вход -->
+<section>
+  <h2>Вход</h2>
+  <p class="desc">POST /api/auth/login — возвращает токен</p>
+  <div class="row">
+    <div class="field"><label>Email</label><input id="loginEmail" value="ivan@mail.ru"></div>
+    <div class="field"><label>Пароль</label><input id="loginPass" value="secret123"></div>
+    <button class="btn-blue" onclick="doLogin()">Войти</button>
+  </div>
+  <div class="result" id="resLogin"></div>
+</section>
+
+<!-- Профиль -->
+<section>
+  <h2>Профиль</h2>
+  <p class="desc">GET /api/profile — требуется токен</p>
+  <div class="row">
+    <button class="btn-blue" onclick="apiGet('/api/profile', 'resProfile', true)">Получить профиль</button>
+  </div>
+  <hr class="divider">
+  <p class="desc">PUT /api/profile — обновить имя и/или email</p>
+  <div class="row">
+    <div class="field"><label>Новое имя</label><input id="profileName" placeholder="Оставь пустым, чтобы не менять"></div>
+    <div class="field"><label>Новый email</label><input id="profileEmail" placeholder="Оставь пустым, чтобы не менять"></div>
+    <button class="btn-orange" onclick="doUpdateProfile()">Обновить профиль</button>
+  </div>
+  <div class="result" id="resProfile"></div>
+</section>
+
+<!-- Поиск -->
+<section>
+  <h2>Поиск запчастей</h2>
+  <p class="desc">GET /api/search?q=... — доступен всем, с токеном сохраняет историю</p>
+  <div class="row">
+    <div class="field"><label>Запрос</label><input id="searchQuery" value="48157-33062"></div>
+    <button class="btn-blue" onclick="doSearch()">Найти</button>
+  </div>
+  <div class="result" id="resSearch"></div>
+</section>
+
+<!-- Запчасть по артикулу -->
+<section>
+  <h2>Запчасть по артикулу</h2>
+  <p class="desc">GET /api/parts/:article</p>
+  <div class="row">
+    <div class="field"><label>Артикул</label><input id="partArticle" value="48157-33062"></div>
+    <button class="btn-blue" onclick="doPart()">Получить</button>
+  </div>
+  <div class="result" id="resPart"></div>
+</section>
+
+<!-- История -->
+<section>
+  <h2>История поиска</h2>
+  <p class="desc">Требуется токен</p>
+  <div class="row">
+    <button class="btn-blue" onclick="apiGet('/api/history', 'resHistory', true)">Получить историю</button>
+    <button class="btn-red" onclick="apiDelete('/api/history', 'resHistory', true)">Очистить всю историю</button>
+  </div>
+  <hr class="divider">
+  <p class="desc">DELETE /api/history/:id — удалить одну запись</p>
+  <div class="row">
+    <div class="field"><label>ID записи</label><input id="historyId" placeholder="Вставь id из ответа выше"></div>
+    <button class="btn-red" onclick="doDeleteHistoryItem()">Удалить запись</button>
+  </div>
+  <div class="result" id="resHistory"></div>
+</section>
+
+<!-- Поставщики -->
+<section>
+  <h2>Поставщики</h2>
+  <p class="desc">GET /api/suppliers — доступен всем</p>
+  <div class="row">
+    <button class="btn-blue" onclick="apiGet('/api/suppliers', 'resSuppliers')">Получить список</button>
+  </div>
+  <hr class="divider">
+  <p class="desc">POST /api/suppliers — создать (только admin)</p>
+  <div class="row">
+    <div class="field"><label>ID</label><input id="supId" value="newpart"></div>
+    <div class="field"><label>Название</label><input id="supName" value="NewPart"></div>
+    <div class="field"><label>URL</label><input id="supUrl" value="https://newpart.ru"></div>
+    <div class="field"><label>Регион</label><input id="supRegion" value="Хабаровск"></div>
+    <div class="field">
+      <label>Статус</label>
+      <select id="supStatus"><option>online</option><option>offline</option><option>maintenance</option></select>
+    </div>
+    <div class="field">
+      <label>Тип API</label>
+      <select id="supApiType"><option>api</option><option>scraper</option></select>
+    </div>
+    <button class="btn-green" onclick="doCreateSupplier()">Создать</button>
+  </div>
+  <hr class="divider">
+  <p class="desc">PUT /api/suppliers/:id — обновить статус (только admin)</p>
+  <div class="row">
+    <div class="field"><label>ID поставщика</label><input id="supUpdateId" value="am25"></div>
+    <div class="field">
+      <label>Новый статус</label>
+      <select id="supUpdateStatus"><option>online</option><option>offline</option><option>maintenance</option></select>
+    </div>
+    <button class="btn-orange" onclick="doUpdateSupplier()">Обновить</button>
+  </div>
+  <hr class="divider">
+  <p class="desc">DELETE /api/suppliers/:id — удалить (только admin)</p>
+  <div class="row">
+    <div class="field"><label>ID поставщика</label><input id="supDeleteId" placeholder="Например: newpart"></div>
+    <button class="btn-red" onclick="doDeleteSupplier()">Удалить</button>
+  </div>
+  <div class="result" id="resSuppliers"></div>
+</section>
+
+<script>
+const BASE = window.location.origin;
+let token = localStorage.getItem("apiToken") || "";
+updateTokenUI();
+
+function updateTokenUI() {
+  document.getElementById("tokenInput").value = token ? token.slice(0, 40) + "..." : "";
+  document.getElementById("tokenIndicator").className = "indicator" + (token ? " active" : "");
+}
+
+function saveToken(t) {
+  token = t;
+  localStorage.setItem("apiToken", t);
+  updateTokenUI();
+}
+
+function clearToken() {
+  token = "";
+  localStorage.removeItem("apiToken");
+  updateTokenUI();
+}
+
+function showResult(elId, status, data) {
+  const el = document.getElementById(elId);
+  el.classList.add("visible");
+  const isOk = status >= 200 && status < 300;
+  el.innerHTML =
+    '<div class="status ' + (isOk ? "ok" : "err") + '">HTTP ' + status + "</div>" +
+    JSON.stringify(data, null, 2);
+}
+
+async function request(method, path, body, elId, auth) {
+  const headers = { "Content-Type": "application/json" };
+  if (auth && token) headers["Authorization"] = "Bearer " + token;
+  try {
+    const res = await fetch(BASE + path, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await res.json();
+    showResult(elId, res.status, data);
+    return { status: res.status, data };
+  } catch (e) {
+    showResult(elId, 0, { error: e.message });
+    return null;
+  }
+}
+
+function apiGet(path, elId, auth) { request("GET", path, null, elId, auth); }
+function apiDelete(path, elId, auth) { request("DELETE", path, null, elId, auth); }
+
+async function doRegister() {
+  const body = {
+    name: document.getElementById("regName").value,
+    email: document.getElementById("regEmail").value,
+    password: document.getElementById("regPass").value,
+  };
+  const r = await request("POST", "/api/auth/register", body, "resRegister");
+  if (r && r.data.token) saveToken(r.data.token);
+}
+
+async function doLogin() {
+  const body = {
+    email: document.getElementById("loginEmail").value,
+    password: document.getElementById("loginPass").value,
+  };
+  const r = await request("POST", "/api/auth/login", body, "resLogin");
+  if (r && r.data.token) saveToken(r.data.token);
+}
+
+function doUpdateProfile() {
+  const body = {};
+  const name = document.getElementById("profileName").value.trim();
+  const email = document.getElementById("profileEmail").value.trim();
+  if (name) body.name = name;
+  if (email) body.email = email;
+  request("PUT", "/api/profile", body, "resProfile", true);
+}
+
+function doSearch() {
+  const q = document.getElementById("searchQuery").value.trim();
+  request("GET", "/api/search?q=" + encodeURIComponent(q), null, "resSearch", true);
+}
+
+function doPart() {
+  const a = document.getElementById("partArticle").value.trim();
+  request("GET", "/api/parts/" + encodeURIComponent(a), null, "resPart");
+}
+
+function doDeleteHistoryItem() {
+  const id = document.getElementById("historyId").value.trim();
+  if (!id) return alert("Укажи ID записи");
+  request("DELETE", "/api/history/" + id, null, "resHistory", true);
+}
+
+function doCreateSupplier() {
+  const body = {
+    id: document.getElementById("supId").value.trim(),
+    name: document.getElementById("supName").value.trim(),
+    url: document.getElementById("supUrl").value.trim(),
+    region: document.getElementById("supRegion").value.trim(),
+    status: document.getElementById("supStatus").value,
+    apiType: document.getElementById("supApiType").value,
+  };
+  request("POST", "/api/suppliers", body, "resSuppliers", true);
+}
+
+function doUpdateSupplier() {
+  const id = document.getElementById("supUpdateId").value.trim();
+  if (!id) return alert("Укажи ID поставщика");
+  const body = { status: document.getElementById("supUpdateStatus").value };
+  request("PUT", "/api/suppliers/" + id, body, "resSuppliers", true);
+}
+
+function doDeleteSupplier() {
+  const id = document.getElementById("supDeleteId").value.trim();
+  if (!id) return alert("Укажи ID поставщика");
+  request("DELETE", "/api/suppliers/" + id, null, "resSuppliers", true);
+}
+</script>
+
+</body>
+</html>

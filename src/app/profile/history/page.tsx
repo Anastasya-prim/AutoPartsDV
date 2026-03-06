@@ -1,100 +1,164 @@
 "use client";
 
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { api, isLoggedIn } from "@/lib/api";
 
-/* ============================================================
-   История поиска /profile/history
-   Моковые данные — поиски сгруппированы по дням.
-   ============================================================ */
+interface HistoryItem {
+  id: string;
+  query: string;
+  resultsCount: number;
+  createdAt: string;
+}
 
-const mockHistory = [
-  {
-    day: "Сегодня",
-    items: [
-      { time: "14:30", query: "48157-33062", results: 5 },
-      { time: "12:15", query: "колодки camry", results: 18 },
-      { time: "09:40", query: "90915-YZZD1", results: 12 },
-    ],
-  },
-  {
-    day: "Вчера",
-    items: [
-      { time: "17:20", query: "04465-33471", results: 8 },
-      { time: "11:05", query: "43330-09510", results: 6 },
-    ],
-  },
-  {
-    day: "3 марта",
-    items: [
-      { time: "16:10", query: "16400-31090", results: 14 },
-      { time: "10:30", query: "масляный фильтр corolla", results: 22 },
-    ],
-  },
-];
+interface DayGroup {
+  day: string;
+  items: HistoryItem[];
+}
+
+function groupByDay(items: HistoryItem[]): DayGroup[] {
+  const groups: Record<string, HistoryItem[]> = {};
+  const today = new Date().toDateString();
+  const yesterday = new Date(Date.now() - 86400000).toDateString();
+
+  for (const item of items) {
+    const d = new Date(item.createdAt);
+    const ds = d.toDateString();
+    let label: string;
+    if (ds === today) label = "Сегодня";
+    else if (ds === yesterday) label = "Вчера";
+    else label = d.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
+
+    if (!groups[label]) groups[label] = [];
+    groups[label].push(item);
+  }
+
+  return Object.entries(groups).map(([day, items]) => ({ day, items }));
+}
 
 export default function HistoryPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [clearing, setClearing] = useState(false);
+
+  useEffect(() => {
+    if (!isLoggedIn()) { router.push("/login"); return; }
+
+    let cancelled = false;
+    api<{ history: HistoryItem[] }>("/history", { auth: true })
+      .then((data) => { if (!cancelled) setHistory(data.history); })
+      .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : "Ошибка"); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [router]);
+
+  const grouped = useMemo(() => groupByDay(history), [history]);
+
+  async function handleClear() {
+    setClearing(true);
+    try {
+      await api("/history", { method: "DELETE", auth: true });
+      setHistory([]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка очистки");
+    } finally {
+      setClearing(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-8 sm:py-10">
+        <div className="h-4 w-20 bg-gray-200 rounded mb-4 animate-pulse" />
+        <div className="h-8 w-48 bg-gray-200 rounded mb-6 animate-pulse" />
+        <div className="space-y-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 h-16 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-8 sm:py-10">
+        <Link href="/profile" className="text-blue-600 hover:underline text-sm mb-4 inline-block">&larr; Профиль</Link>
+        <div className="bg-red-50 border border-red-200 rounded-xl p-5">
+          <p className="font-medium text-red-700">Ошибка</p>
+          <p className="text-sm text-red-600 mt-1">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  function formatTime(iso: string) {
+    return new Date(iso).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  }
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 sm:py-10">
-      {/* ── Навигация ── */}
       <Link href="/profile" className="text-blue-600 hover:underline text-sm mb-4 inline-block">
         &larr; Профиль
       </Link>
 
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl sm:text-2xl font-bold">История поиска</h1>
-        <button className="text-sm text-red-500 hover:text-red-600 transition-colors">
-          Очистить
-        </button>
-      </div>
-
-      {/* ── Фильтр по периоду ── */}
-      <div className="flex gap-2 mb-6 overflow-x-auto">
-        {["Сегодня", "Неделя", "Месяц", "Всё время"].map((period, i) => (
+        {history.length > 0 && (
           <button
-            key={period}
-            className={`px-4 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors ${
-              i === 3
-                ? "bg-blue-600 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
+            onClick={handleClear}
+            disabled={clearing}
+            className="text-sm text-red-500 hover:text-red-600 disabled:text-red-300 transition-colors"
           >
-            {period}
+            {clearing ? "Очистка..." : "Очистить"}
           </button>
-        ))}
+        )}
       </div>
 
-      {/* ── Список по дням ── */}
-      <div className="space-y-6">
-        {mockHistory.map((group) => (
-          <div key={group.day}>
-            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-2">
-              {group.day}
-            </h2>
-            <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-              {group.items.map((item, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between px-4 sm:px-5 py-3.5 hover:bg-blue-50/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-xs text-gray-400 w-10 shrink-0">{item.time}</span>
-                    <div className="min-w-0">
-                      <p className="font-mono font-medium text-sm truncate">{item.query}</p>
-                      <p className="text-xs text-gray-400">{item.results} результатов</p>
-                    </div>
-                  </div>
-                  <Link
-                    href={`/search?q=${encodeURIComponent(item.query)}`}
-                    className="text-sm text-blue-600 hover:text-blue-700 font-medium shrink-0 ml-3"
+      {history.length === 0 ? (
+        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400">
+          <p>История пуста</p>
+          <Link href="/" className="text-blue-500 hover:underline text-sm mt-2 inline-block">
+            Попробовать поиск
+          </Link>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {grouped.map((group) => (
+            <div key={group.day}>
+              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-2">
+                {group.day}
+              </h2>
+              <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+                {group.items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between px-4 sm:px-5 py-3.5 hover:bg-blue-50/50 transition-colors"
                   >
-                    Повторить
-                  </Link>
-                </div>
-              ))}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-xs text-gray-400 w-10 shrink-0">{formatTime(item.createdAt)}</span>
+                      <div className="min-w-0">
+                        <p className="font-mono font-medium text-sm truncate">{item.query}</p>
+                        <p className="text-xs text-gray-400">{item.resultsCount} результатов</p>
+                      </div>
+                    </div>
+                    <Link
+                      href={`/search?q=${encodeURIComponent(item.query)}`}
+                      className="text-sm text-blue-600 hover:text-blue-700 font-medium shrink-0 ml-3"
+                    >
+                      Повторить
+                    </Link>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

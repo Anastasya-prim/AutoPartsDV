@@ -3,11 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { api, setToken } from "@/lib/api";
 
-/* ============================================================
-   Страница регистрации /register
-   Моковая — принимает любые данные и редиректит в /profile.
-   ============================================================ */
+interface AuthResponse {
+  user: { id: string; name: string; email: string; role: string; registeredAt: string };
+  token: string;
+}
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -15,8 +16,9 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
 
@@ -25,7 +27,19 @@ export default function RegisterPage() {
       return;
     }
 
-    router.push("/profile");
+    setLoading(true);
+    try {
+      const data = await api<AuthResponse>("/auth/register", {
+        method: "POST",
+        body: { name, email, password },
+      });
+      setToken(data.token);
+      router.push("/profile");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка регистрации");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -75,9 +89,10 @@ export default function RegisterPage() {
 
           <button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
+            disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 rounded-xl transition-colors"
           >
-            Зарегистрироваться
+            {loading ? "Регистрация..." : "Зарегистрироваться"}
           </button>
         </form>
 

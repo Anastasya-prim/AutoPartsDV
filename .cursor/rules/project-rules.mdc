@@ -29,10 +29,12 @@ postcss.config.mjs - Подключение Tailwind CSS через PostCSS
 README.md - Описание проекта
 #Данные и типы (src/lib/)
 src/lib/types.ts - Типы данных: Supplier (поставщик) и SearchResult (результат поиска)
-src/lib/mock-data.ts - Моковые данные: 7 поставщиков, 10 результатов поиска, функция searchParts()
+src/lib/api.ts - API-клиент: fetch-обёртка, хелперы токена (getToken, setToken, removeToken)
+src/lib/mock-data.ts - Моковые данные (не используются, оставлены как справочник)
 #Приложение (src/app/)
 src/app/globals.css	— Подключение Tailwind CSS
-src/app/layout.tsx - Все страницы	Общий каркас: Header (логотип + «Войти»), Footer, обёртка <html>
+src/app/header.tsx - Клиентский Header — показывает «Войти» или «Профиль» в зависимости от авторизации
+src/app/layout.tsx - Серверный layout: подключает Header, Footer, обёртка <html>
 src/app/page.tsx	/ - Главная — поле поиска, примеры артикулов, блок «Как это работает»
 src/app/search/page.tsx	/search?q=... - Результаты поиска — таблица/карточки, фильтры, сортировка
 src/app/part/[article]/page.tsx	/part/48157-33062 - Карточка запчасти — предложения по артикулу + аналоги
@@ -43,3 +45,17 @@ src/app/profile/history/page.tsx	/profile/history - История поиска 
 src/app/suppliers/page.tsx	/suppliers - Карточки поставщиков со статусами (скрыта от навигации)
 src/app/about/page.tsx	/about - О сервисе, FAQ-аккордеон, контакты (скрыта от навигации)
 src/app/not-found.tsx	/404 - Страница «Не найдено» (кастомная 404)
+#Бэкенд (server/)
+server/package.json - Зависимости бэкенда (Express, sql.js, JWT, bcrypt)
+server/tsconfig.json - Настройки TypeScript для бэкенда
+server/.env - Переменные окружения (PORT, JWT_SECRET)
+server/.env.example - Пример переменных окружения
+server/src/index.ts - Точка входа: Express-сервер, подключение роутов
+server/src/database.ts - Инициализация SQLite (sql.js), таблицы, seed-данные, обёртки запросов
+server/src/middleware/auth.ts - JWT-авторизация: generateToken, requireAuth, optionalAuth, requireAdmin
+server/src/routes/auth.ts - POST /api/auth/register, POST /api/auth/login
+server/src/routes/profile.ts - GET /api/profile, PUT /api/profile
+server/src/routes/search.ts - GET /api/search?q=... — поиск запчастей
+server/src/routes/parts.ts - GET /api/parts/:article — предложения по артикулу
+server/src/routes/history.ts - GET/DELETE /api/history — история поиска
+server/src/routes/suppliers.ts - CRUD /api/suppliers — управление поставщиками (admin)
