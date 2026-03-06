@@ -32,7 +32,8 @@ const SEARCH_SQL = `
          s.name   AS supplier_name,
          s.url    AS supplier_url,
          s.region AS supplier_region,
-         s.status AS supplier_status
+         s.status   AS supplier_status,
+         s.api_type AS supplier_api_type
   FROM parts p
   JOIN suppliers s ON s.id = p.supplier_id
   WHERE LOWER(p.article) LIKE ? OR LOWER(p.name) LIKE ? OR LOWER(p.brand) LIKE ?

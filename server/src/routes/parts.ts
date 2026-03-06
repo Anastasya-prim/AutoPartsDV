@@ -12,6 +12,7 @@ function formatResult(row: Record<string, any>) {
       url: row.supplier_url,
       region: row.supplier_region,
       status: row.supplier_status,
+      apiType: row.supplier_api_type,
     },
     brand: row.brand,
     article: row.article,
@@ -30,7 +31,8 @@ const PARTS_SQL = `
          s.name   AS supplier_name,
          s.url    AS supplier_url,
          s.region AS supplier_region,
-         s.status AS supplier_status
+         s.status   AS supplier_status,
+         s.api_type AS supplier_api_type
   FROM parts p
   JOIN suppliers s ON s.id = p.supplier_id
   WHERE p.article = ?
@@ -41,7 +43,8 @@ const ANALOGS_SQL = `
          s.name   AS supplier_name,
          s.url    AS supplier_url,
          s.region AS supplier_region,
-         s.status AS supplier_status
+         s.status   AS supplier_status,
+         s.api_type AS supplier_api_type
   FROM parts p
   JOIN suppliers s ON s.id = p.supplier_id
   WHERE p.is_analog = 1 AND p.analog_for = ? AND p.article != ?
