@@ -53,9 +53,10 @@ server/.env.example - Пример переменных окружения
 server/src/index.ts - Точка входа: Express-сервер, подключение роутов
 server/src/database.ts - Инициализация SQLite (sql.js), таблицы, seed-данные, обёртки запросов
 server/src/middleware/auth.ts - JWT-авторизация: generateToken, requireAuth, optionalAuth, requireAdmin
-server/src/routes/auth.ts - POST /api/auth/register, POST /api/auth/login
+server/src/routes/auth.ts - POST /api/auth/register, POST /api/auth/login, PUT /api/auth/password (смена пароля)
 server/src/routes/profile.ts - GET /api/profile, PUT /api/profile
 server/src/routes/search.ts - GET /api/search?q=... — поиск запчастей
 server/src/routes/parts.ts - GET /api/parts/:article — предложения по артикулу
 server/src/routes/history.ts - GET/DELETE /api/history — история поиска
 server/src/routes/suppliers.ts - CRUD /api/suppliers — управление поставщиками (admin)
+server/public/test.html - HTML-страница для ручного тестирования API-эндпоинтов

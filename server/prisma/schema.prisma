@@ -1,0 +1,63 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id            String          @id @default(uuid())
+  name          String
+  email         String          @unique
+  passwordHash  String          @map("password_hash")
+  role          String          @default("user")
+  registeredAt  DateTime        @default(now()) @map("registered_at")
+  searchHistory SearchHistory[]
+
+  @@map("users")
+}
+
+model Supplier {
+  id      String @id
+  name    String
+  url     String
+  region  String
+  status  String @default("online")
+  apiType String @default("api") @map("api_type")
+  parts   Part[]
+
+  @@map("suppliers")
+}
+
+model Part {
+  id           String   @id @default(uuid())
+  supplierId   String   @map("supplier_id")
+  supplier     Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  brand        String
+  article      String
+  name         String
+  price        Float
+  quantity     Int      @default(0)
+  inStock      Int      @default(1) @map("in_stock")
+  deliveryDays Int      @default(0) @map("delivery_days")
+  isAnalog     Int      @default(0) @map("is_analog")
+  analogFor    String?  @map("analog_for")
+
+  @@map("parts")
+}
+
+model SearchHistory {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  query        String
+  resultsCount Int      @default(0) @map("results_count")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("search_history")
+}

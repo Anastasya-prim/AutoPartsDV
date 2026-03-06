@@ -52,7 +52,7 @@ const ANALOGS_SQL = `
 
 // GET /api/parts/:article
 router.get("/:article", (req: Request, res: Response): void => {
-  const article = decodeURIComponent(req.params.article);
+  const article = decodeURIComponent(String(req.params.article ?? ""));
 
   const offerRows = queryAll(PARTS_SQL, [article]);
   const offers = offerRows.map(formatResult);
