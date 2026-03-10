@@ -13,7 +13,7 @@ export class OptionalJwtAuthGuard implements CanActivate {
       const token = authHeader.split(' ')[1];
       try {
         const payload = await this.jwtService.verifyAsync(token, {
-          secret: process.env.JWT_SECRET || 'secret-key',
+          secret: process.env.JWT_SECRET,
         });
         request.user = payload;
       } catch {

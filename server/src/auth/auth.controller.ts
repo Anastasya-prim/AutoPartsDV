@@ -1,7 +1,10 @@
-import { Controller, Post, Put, Body, UseGuards, Request, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Put, Body, UseGuards, Request, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import * as bcrypt from 'bcryptjs';
 
 @Controller('api/auth')
@@ -12,33 +15,25 @@ export class AuthController {
   ) {}
 
   @Post('register')
-  async register(@Body() body: { name: string; email: string; password: string }) {
-    return this.authService.register(body.name, body.email, body.password);
+  async register(@Body() dto: RegisterDto) {
+    return this.authService.register(dto.name, dto.email, dto.password);
   }
 
   @Post('login')
-  async login(@Body() body: { email: string; password: string }) {
-    return this.authService.login(body.email, body.password);
+  async login(@Body() dto: LoginDto) {
+    return this.authService.login(dto.email, dto.password);
   }
 
   @Put('password')
   @UseGuards(JwtAuthGuard)
-  async changePassword(
-    @Request() req,
-    @Body() body: { currentPassword: string; newPassword: string },
-  ) {
-    if (!body.currentPassword) throw new BadRequestException('Введите текущий пароль');
-    if (!body.newPassword || body.newPassword.length < 6) {
-      throw new BadRequestException('Новый пароль — минимум 6 символов');
-    }
-
+  async changePassword(@Request() req, @Body() dto: ChangePasswordDto) {
     const user = await this.prisma.user.findUnique({ where: { id: req.user.userId } });
-    if (!user) throw new BadRequestException('Пользователь не найден');
+    if (!user) throw new UnauthorizedException('Пользователь не найден');
 
-    const isMatch = await bcrypt.compare(body.currentPassword, user.passwordHash);
+    const isMatch = await bcrypt.compare(dto.currentPassword, user.passwordHash);
     if (!isMatch) throw new UnauthorizedException('Неверный текущий пароль');
 
-    const newHash = await bcrypt.hash(body.newPassword, 10);
+    const newHash = await bcrypt.hash(dto.newPassword, 10);
     await this.prisma.user.update({
       where: { id: req.user.userId },
       data: { passwordHash: newHash },

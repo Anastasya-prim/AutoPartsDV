@@ -25,7 +25,7 @@ export class AuthService {
       },
     });
 
-    const token = this.jwtService.sign({ userId: user.id, email: user.email });
+    const token = this.jwtService.sign({ userId: user.id, email: user.email, role: user.role });
     return { token, user: { id: user.id, name: user.name, email: user.email, role: user.role } };
   }
 
@@ -36,7 +36,7 @@ export class AuthService {
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) throw new UnauthorizedException('Неверный email или пароль');
 
-    const token = this.jwtService.sign({ userId: user.id, email: user.email });
+    const token = this.jwtService.sign({ userId: user.id, email: user.email, role: user.role });
     return { token, user: { id: user.id, name: user.name, email: user.email, role: user.role } };
   }
 }

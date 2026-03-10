@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:4000/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -43,7 +43,8 @@ export async function api<T = unknown>(path: string, opts: FetchOptions = {}): P
   const data = await res.json();
 
   if (!res.ok) {
-    throw new Error(data.error || `Ошибка ${res.status}`);
+    const msg = data.message || data.error || `Ошибка ${res.status}`;
+    throw new Error(Array.isArray(msg) ? msg.join(', ') : msg);
   }
 
   return data as T;

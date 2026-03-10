@@ -47,15 +47,26 @@ async function main() {
   }
   console.log(`Создано ${parts.length} запчастей.`);
 
-  const passwordHash = await bcrypt.hash('123456', 10);
+  const userHash = await bcrypt.hash('123456', 10);
   await prisma.user.create({
     data: {
       name: 'Тестовый пользователь',
       email: 'test@test.com',
-      passwordHash,
+      passwordHash: userHash,
     },
   });
-  console.log('Создан тестовый пользователь: test@test.com / 123456');
+  console.log('Создан пользователь: test@test.com / 123456 (role: user)');
+
+  const adminHash = await bcrypt.hash('admin123', 10);
+  await prisma.user.create({
+    data: {
+      name: 'Администратор',
+      email: 'admin@test.com',
+      passwordHash: adminHash,
+      role: 'admin',
+    },
+  });
+  console.log('Создан администратор: admin@test.com / admin123 (role: admin)');
 
   console.log('Seed завершён.');
 }

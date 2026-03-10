@@ -50,24 +50,28 @@ export class PartsService {
     const analogs = results.filter((r) => r.isAnalog);
 
     if (userId) {
-      const fiveSecondsAgo = new Date(Date.now() - 5000);
-      const duplicate = await this.prisma.searchHistory.findFirst({
-        where: {
-          userId,
-          query,
-          createdAt: { gte: fiveSecondsAgo },
-        },
-      });
-
-      if (!duplicate) {
-        await this.prisma.searchHistory.create({
-          data: {
-            id: uuid(),
+      try {
+        const fiveSecondsAgo = new Date(Date.now() - 5000);
+        const duplicate = await this.prisma.searchHistory.findFirst({
+          where: {
             userId,
             query,
-            resultsCount: results.length,
+            createdAt: { gte: fiveSecondsAgo },
           },
         });
+
+        if (!duplicate) {
+          await this.prisma.searchHistory.create({
+            data: {
+              id: uuid(),
+              userId,
+              query,
+              resultsCount: results.length,
+            },
+          });
+        }
+      } catch {
+        // Ошибка записи истории не должна ломать результаты поиска
       }
     }
 
@@ -75,7 +79,12 @@ export class PartsService {
   }
 
   async findByArticle(article: string) {
-    const decoded = decodeURIComponent(article);
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(article);
+    } catch {
+      throw new BadRequestException('Некорректный артикул');
+    }
 
     const parts = await this.prisma.part.findMany({
       where: { article: decoded },

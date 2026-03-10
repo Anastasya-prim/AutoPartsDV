@@ -1,5 +1,10 @@
-import { Controller, Get, Post, Put, Delete, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
 import { SuppliersService } from './suppliers.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { CreateSupplierDto } from './dto/create-supplier.dto';
+import { UpdateSupplierDto } from './dto/update-supplier.dto';
 
 @Controller('api/suppliers')
 export class SuppliersController {
@@ -11,16 +16,22 @@ export class SuppliersController {
   }
 
   @Post()
-  async create(@Body() body: any) {
-    return this.suppliersService.create(body);
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async create(@Body() dto: CreateSupplierDto) {
+    return this.suppliersService.create(dto);
   }
 
   @Put(':id')
-  async update(@Param('id') id: string, @Body() body: any) {
-    return this.suppliersService.update(id, body);
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  async update(@Param('id') id: string, @Body() dto: UpdateSupplierDto) {
+    return this.suppliersService.update(id, dto);
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   async remove(@Param('id') id: string) {
     return this.suppliersService.remove(id);
   }
