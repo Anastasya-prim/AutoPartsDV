@@ -26,6 +26,22 @@ export default function RegisterPage() {
       setError("Заполните все поля");
       return;
     }
+    if (name.trim().length < 2) {
+      setError("Имя должно содержать минимум 2 символа");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Некорректный формат email");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Пароль должен содержать минимум 6 символов");
+      return;
+    }
+    if (password.length > 72) {
+      setError("Пароль не может быть длиннее 72 символов");
+      return;
+    }
 
     setLoading(true);
     try {

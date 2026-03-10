@@ -25,6 +25,10 @@ export default function LoginPage() {
       setError("Заполните все поля");
       return;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Некорректный формат email");
+      return;
+    }
 
     setLoading(true);
     try {

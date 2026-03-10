@@ -83,6 +83,7 @@ export default function ProfilePage() {
 
     if (!currentPassword) { setPwError("Введите текущий пароль"); return; }
     if (newPassword.length < 6) { setPwError("Новый пароль — минимум 6 символов"); return; }
+    if (newPassword.length > 72) { setPwError("Пароль не может быть длиннее 72 символов"); return; }
     if (newPassword !== confirmPassword) { setPwError("Пароли не совпадают"); return; }
 
     setPwLoading(true);

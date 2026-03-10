@@ -77,8 +77,16 @@ export default function AdminSuppliersPage() {
   async function handleSave() {
     setFormError("");
     if (!form.id.trim()) { setFormError("ID обязателен"); return; }
+    if (!editingId && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(form.id.trim())) {
+      setFormError("ID может содержать только латиницу в нижнем регистре, цифры и дефис");
+      return;
+    }
     if (!form.name.trim()) { setFormError("Название обязательно"); return; }
     if (!form.url.trim()) { setFormError("URL обязателен"); return; }
+    try { new URL(form.url.trim()); } catch {
+      setFormError("Некорректный формат URL (например: https://example.com)");
+      return;
+    }
     if (!form.region.trim()) { setFormError("Регион обязателен"); return; }
 
     setSaving(true);
