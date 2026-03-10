@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { api, removeToken, isLoggedIn } from "@/lib/api";
+import { api, removeToken, isLoggedIn, getUserRole } from "@/lib/api";
 
 interface User {
   id: string;
@@ -191,6 +191,22 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* ── Админ-панель (только для admin) ── */}
+      {getUserRole() === "admin" && (
+        <Link
+          href="/admin/suppliers"
+          className="block bg-orange-50 border border-orange-200 rounded-xl p-5 mb-6 hover:border-orange-300 hover:shadow-sm transition-all"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-orange-800">Управление поставщиками</p>
+              <p className="text-sm text-orange-600 mt-0.5">Добавление, редактирование, удаление</p>
+            </div>
+            <span className="text-orange-400 text-xl">→</span>
+          </div>
+        </Link>
+      )}
 
       {/* ── Навигация ── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
