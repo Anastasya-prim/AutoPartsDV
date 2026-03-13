@@ -2,6 +2,7 @@
 
 
 Поставщик	Почему не работает	Что нужно
+
 AutoTrade	- Работает
 Rossko	- Сайт показывает форму логина, без входа поиск не доступен	Указать ROSSKO_LOGIN и ROSSKO_PASSWORD в .env
 MX Group - B2B-поставщик, редиректит на страницу авторизации (zakaz.mxgroup.ru)	Бизнес-договор + MXGROUP_LOGIN / MXGROUP_PASSWORD в .env
