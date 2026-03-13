@@ -1,3 +1,14 @@
+/**
+ * Страница профиля пользователя — /profile
+ *
+ * Показывает:
+ * - Аватар (первая буква имени), имя, email, дату регистрации
+ * - Ссылку в админ-панель (если role = admin)
+ * - Кнопки: история поиска, смена пароля, выход
+ * - Последние 5 поисковых запросов
+ *
+ * Если пользователь не авторизован — перенаправляет на /login.
+ */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -36,6 +47,7 @@ export default function ProfilePage() {
   const [pwError, setPwError] = useState("");
   const [pwSuccess, setPwSuccess] = useState("");
 
+  // При загрузке: проверяем авторизацию и подгружаем данные профиля + историю
   useEffect(() => {
     if (!isLoggedIn()) {
       setRedirecting(true);
@@ -47,6 +59,7 @@ export default function ProfilePage() {
 
     (async () => {
       try {
+        // Загружаем профиль и историю параллельно (быстрее, чем последовательно)
         const [profileData, historyData] = await Promise.all([
           api<User>("/profile", { auth: true }),
           api<{ history: HistoryItem[] }>("/history", { auth: true }),
@@ -159,10 +172,12 @@ export default function ProfilePage() {
 
   if (!user) return null;
 
+  /** Форматирует ISO-дату в «13 марта 2026» */
   function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
   }
 
+  /** Форматирует дату в «5 мин. назад», «2 ч. назад», «Вчера» */
   function formatRelative(iso: string) {
     const d = new Date(iso);
     const now = new Date();

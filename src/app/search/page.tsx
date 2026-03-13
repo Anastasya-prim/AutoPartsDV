@@ -1,3 +1,15 @@
+/**
+ * Страница результатов поиска — /search?q=...
+ *
+ * Что происходит:
+ * 1. Берём запрос из URL (параметр q)
+ * 2. Параллельно загружаем результаты поиска и список поставщиков
+ * 3. Показываем статусы поставщиков (онлайн / обслуживание / офлайн)
+ * 4. Результаты можно фильтровать (только в наличии) и сортировать
+ * 5. Разделяем на «точные совпадения» и «аналоги»
+ *
+ * Suspense + SearchSkeleton — пока грузится, показываем скелетон (заглушки).
+ */
 "use client";
 
 import { Suspense, useState, useMemo, useEffect } from "react";
@@ -6,8 +18,10 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import type { SearchResult, Supplier } from "@/lib/types";
 
+/** Варианты сортировки результатов */
 type SortKey = "price" | "quantity" | "deliveryDays" | "supplier";
 
+/** Формат ответа от GET /api/search */
 interface SearchResponse {
   query: string;
   total: number;
@@ -15,10 +29,12 @@ interface SearchResponse {
   analogs: SearchResult[];
 }
 
+/** Формат ответа от GET /api/suppliers */
 interface SuppliersResponse {
   suppliers: Supplier[];
 }
 
+/** Обёртка с Suspense — показывает скелетон, пока компонент грузится */
 export default function SearchPage() {
   return (
     <Suspense fallback={<SearchSkeleton />}>
@@ -43,23 +59,26 @@ function SearchSkeleton() {
   );
 }
 
+/** Основной контент страницы поиска */
 function SearchContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const query = searchParams.get("q") || "";
+  const query = searchParams.get("q") || "";  // Поисковый запрос из URL
 
-  const [newQuery, setNewQuery] = useState(query);
-  const [sortBy, setSortBy] = useState<SortKey>("price");
-  const [onlyInStock, setOnlyInStock] = useState(false);
+  const [newQuery, setNewQuery] = useState(query);       // Текст в поле ввода
+  const [sortBy, setSortBy] = useState<SortKey>("price"); // Текущая сортировка
+  const [onlyInStock, setOnlyInStock] = useState(false);  // Фильтр «только в наличии»
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
 
+  // При изменении запроса в URL — загружаем данные с бэкенда
   useEffect(() => {
     if (!query.trim()) return;
 
+    // cancelled — защита от race condition (если пользователь быстро меняет запрос)
     let cancelled = false;
     setLoading(true);
     setError("");
@@ -86,6 +105,7 @@ function SearchContent() {
     return () => { cancelled = true; };
   }, [query]);
 
+  // useMemo — пересчитываем фильтрацию/сортировку только при изменении зависимостей
   const filtered = useMemo(() => {
     const items = onlyInStock ? results.filter((r) => r.inStock) : [...results];
     items.sort((a, b) => {
@@ -282,6 +302,7 @@ function SearchContent() {
   );
 }
 
+/** Секция результатов (используется дважды: для точных совпадений и для аналогов) */
 function ResultSection({ title, results, query }: { title: string; results: SearchResult[]; query: string }) {
   return (
     <div className="mb-8">

@@ -1,3 +1,15 @@
+/**
+ * AuthModule — модуль аутентификации.
+ *
+ * Объединяет:
+ * - PassportModule — фреймворк стратегий аутентификации
+ * - JwtModule — создание и проверка JWT-токенов
+ * - AuthService — бизнес-логика (регистрация, вход)
+ * - JwtStrategy — стратегия Passport для проверки Bearer-токенов
+ *
+ * Экспортирует AuthService и JwtModule для использования в других модулях
+ * (например, OptionalJwtAuthGuard использует JwtService из JwtModule).
+ */
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -12,7 +24,7 @@ import { UsersModule } from '../users/users.module';
     PassportModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET,
-      signOptions: { expiresIn: '7d' },
+      signOptions: { expiresIn: '7d' },  // Токен действителен 7 дней
     }),
   ],
   controllers: [AuthController],

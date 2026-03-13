@@ -1,3 +1,11 @@
+/**
+ * AuthController — обработчик HTTP-запросов авторизации.
+ *
+ * Эндпоинты:
+ * - POST /api/auth/register — регистрация нового пользователя
+ * - POST /api/auth/login    — вход (получение JWT-токена)
+ * - PUT  /api/auth/password  — смена пароля (требует авторизацию)
+ */
 import { Controller, Post, Put, Body, UseGuards, Request, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -24,6 +32,7 @@ export class AuthController {
     return this.authService.login(dto.email, dto.password);
   }
 
+  /** Смена пароля: требует JWT-токен + старый пароль для подтверждения */
   @Put('password')
   @UseGuards(JwtAuthGuard)
   async changePassword(@Request() req, @Body() dto: ChangePasswordDto) {

@@ -1,3 +1,10 @@
+/**
+ * HistoryService — работа с историей поисковых запросов пользователя.
+ *
+ * - findAll — получить всю историю (отсортировано по дате, новые сверху)
+ * - clear   — очистить всю историю
+ * - remove  — удалить одну запись (с проверкой, что она принадлежит пользователю)
+ */
 import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 

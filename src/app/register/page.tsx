@@ -1,3 +1,10 @@
+/**
+ * Страница регистрации — /register
+ *
+ * Форма: имя + email + пароль → POST /api/auth/register.
+ * Валидация на клиенте: имя >= 2 символов, email по регулярке, пароль 6–72 символа.
+ * При успехе: сохраняем JWT-токен и переходим в профиль.
+ */
 "use client";
 
 import { useState } from "react";
@@ -5,6 +12,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, setToken } from "@/lib/api";
 
+/** Формат ответа от сервера при логине/регистрации */
 interface AuthResponse {
   user: { id: string; name: string; email: string; role: string; registeredAt: string };
   token: string;

@@ -47,6 +47,7 @@ model Part {
   deliveryDays Int      @default(0) @map("delivery_days")
   isAnalog     Int      @default(0) @map("is_analog")
   analogFor    String?  @map("analog_for")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@map("parts")
 }

@@ -1,12 +1,38 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+/**
+ * PartsService — главный сервис бизнес-логики поиска запчастей.
+ *
+ * Алгоритм работы (для search и findByArticle):
+ * 1. Сначала ищем в локальной БД (кэш) — это быстро
+ * 2. Если кэш свежий (не старше CACHE_TTL_MINUTES) — возвращаем его
+ * 3. Если кэш устарел или пуст — запрашиваем данные у поставщиков
+ *    через SupplierAggregatorService (парсинг сайтов через Playwright)
+ * 4. Полученные результаты сохраняем в БД в фоне (для будущих запросов)
+ * 5. Если поставщики не ответили — возвращаем старый кэш (лучше, чем ничего)
+ */
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { SupplierAggregatorService } from './supplier-aggregator.service';
+import { SupplierSearchResult, SupplierStatus } from './suppliers/supplier-adapter.interface';
 import { v4 as uuid } from 'uuid';
 
 @Injectable()
 export class PartsService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(PartsService.name);
+  /** Время жизни кэша в миллисекундах (берётся из .env CACHE_TTL_MINUTES) */
+  private readonly cacheTtlMs: number;
 
-  private formatResult(p: any) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly aggregator: SupplierAggregatorService,
+    private readonly config: ConfigService,
+  ) {
+    const ttlMinutes = parseInt(this.config.get('CACHE_TTL_MINUTES', '30'), 10);
+    this.cacheTtlMs = ttlMinutes * 60 * 1000;
+  }
+
+  /** Преобразует запись из БД (Prisma) в формат, понятный фронтенду */
+  private formatDbResult(p: any) {
     return {
       id: p.id,
       supplier: {
@@ -29,12 +55,55 @@ export class PartsService {
     };
   }
 
+  /** Преобразует «живой» результат от поставщика в формат для фронтенда */
+  private formatAggregatorResult(
+    r: SupplierSearchResult & { supplierId: string },
+    supplierInfo: Map<string, any>,
+  ) {
+    const sup = supplierInfo.get(r.supplierId);
+    return {
+      id: `live-${r.supplierId}-${r.article}-${r.brand}`,
+      supplier: sup
+        ? { id: sup.id, name: sup.name, url: sup.url, region: sup.region, status: sup.status, apiType: sup.apiType }
+        : { id: r.supplierId, name: r.supplierId, url: '', region: '', status: 'online', apiType: 'scraper' },
+      brand: r.brand,
+      article: r.article,
+      name: r.name,
+      price: r.price,
+      quantity: r.quantity,
+      inStock: r.inStock,
+      deliveryDays: r.deliveryDays,
+      isAnalog: r.isAnalog,
+      analogFor: r.analogFor || null,
+    };
+  }
+
+  /** Проверяет, не устарел ли кэш: берёт самую старую запись и сравнивает с TTL */
+  private isCacheFresh(parts: Array<{ updatedAt: Date }>): boolean {
+    if (parts.length === 0) return false;
+    const oldest = parts.reduce(
+      (min, p) => (p.updatedAt < min ? p.updatedAt : min),
+      parts[0].updatedAt,
+    );
+    return Date.now() - oldest.getTime() < this.cacheTtlMs;
+  }
+
+  /**
+   * Поиск запчастей по текстовому запросу (артикул, бренд или название).
+   * Вызывается из GET /api/search?q=...
+   * @param q      — поисковый запрос от пользователя
+   * @param userId — ID пользователя (если авторизован) для сохранения истории
+   */
   async search(q: string, userId?: string) {
     const query = (q || '').trim();
     if (!query) throw new BadRequestException('Параметр q обязателен');
     if (query.length > 100) throw new BadRequestException('Запрос слишком длинный');
 
-    const parts = await this.prisma.part.findMany({
+    let supplierStatuses: SupplierStatus[] = [];
+    let results: any[] = [];
+
+    // Шаг 1: ищем в локальной БД (кэше) по артикулу, названию или бренду
+    const cached = await this.prisma.part.findMany({
       where: {
         OR: [
           { article: { contains: query } },
@@ -45,39 +114,57 @@ export class PartsService {
       include: { supplier: true },
     });
 
-    const results = parts.map((p) => this.formatResult(p));
-    const exact = results.filter((r) => !r.isAnalog);
-    const analogs = results.filter((r) => r.isAnalog);
+    // Шаг 2: если кэш свежий — сразу возвращаем, не тратим время на парсинг сайтов
+    if (this.isCacheFresh(cached)) {
+      this.logger.log(`Кэш актуален для "${query}" — ${cached.length} записей`);
+      results = cached.map((p) => this.formatDbResult(p));
+    } else {
+      this.logger.log(
+        `Кэш пуст или устарел для "${query}" — запрашиваем поставщиков`,
+      );
 
-    if (userId) {
       try {
-        const fiveSecondsAgo = new Date(Date.now() - 5000);
-        const duplicate = await this.prisma.searchHistory.findFirst({
-          where: {
-            userId,
-            query,
-            createdAt: { gte: fiveSecondsAgo },
-          },
-        });
+        // Шаг 3: запрашиваем все поставщики параллельно через агрегатор
+        const { results: liveResults, supplierStatuses: statuses } =
+          await this.aggregator.searchAll(query);
+        supplierStatuses = statuses;
 
-        if (!duplicate) {
-          await this.prisma.searchHistory.create({
-            data: {
-              id: uuid(),
-              userId,
-              query,
-              resultsCount: results.length,
-            },
-          });
+        if (liveResults.length > 0) {
+          const supplierInfo = await this.getSupplierMap();
+          results = liveResults.map((r) =>
+            this.formatAggregatorResult(r, supplierInfo),
+          );
+
+          // Шаг 4: сохраняем в БД в фоне — не блокируем ответ пользователю
+          this.cacheResultsInBackground(liveResults, query);
+        } else {
+          // Поставщики ничего не нашли — вернём старый кэш, если был
+          results = cached.map((p) => this.formatDbResult(p));
         }
-      } catch {
-        // Ошибка записи истории не должна ломать результаты поиска
+      } catch (err) {
+        this.logger.error(
+          `Ошибка агрегации для "${query}": ${err instanceof Error ? err.message : err}`,
+        );
+        results = cached.map((p) => this.formatDbResult(p));
       }
     }
 
-    return { query, total: results.length, exact, analogs };
+    // Разделяем результаты: точные совпадения и аналоги (заменители)
+    const exact = results.filter((r) => !r.isAnalog);
+    const analogs = results.filter((r) => r.isAnalog);
+
+    // Если пользователь авторизован — сохраняем запрос в историю (в фоне)
+    if (userId) {
+      this.saveHistory(userId, query, results.length).catch(() => {});
+    }
+
+    return { query, total: results.length, exact, analogs, supplierStatuses };
   }
 
+  /**
+   * Поиск запчастей по точному артикулу + подгрузка аналогов из БД.
+   * Вызывается из GET /api/parts/:article
+   */
   async findByArticle(article: string) {
     let decoded: string;
     try {
@@ -86,29 +173,173 @@ export class PartsService {
       throw new BadRequestException('Некорректный артикул');
     }
 
-    const parts = await this.prisma.part.findMany({
+    let supplierStatuses: SupplierStatus[] = [];
+    let offers: any[] = [];
+    let analogs: any[] = [];
+
+    const cached = await this.prisma.part.findMany({
       where: { article: decoded },
       include: { supplier: true },
     });
 
-    const allResults = parts.map((p) => this.formatResult(p));
-    const offers = allResults.filter((r) => !r.isAnalog);
-    const analogs = allResults.filter((r) => r.isAnalog);
+    if (this.isCacheFresh(cached)) {
+      const formatted = cached.map((p) => this.formatDbResult(p));
+      offers = formatted.filter((r) => !r.isAnalog);
+      analogs = formatted.filter((r) => r.isAnalog);
+    } else {
+      this.logger.log(
+        `Кэш пуст или устарел для артикула "${decoded}" — запрашиваем поставщиков`,
+      );
 
+      try {
+        const { results: liveResults, supplierStatuses: statuses } =
+          await this.aggregator.searchAll(decoded);
+        supplierStatuses = statuses;
+
+        if (liveResults.length > 0) {
+          const supplierInfo = await this.getSupplierMap();
+          const formatted = liveResults.map((r) =>
+            this.formatAggregatorResult(r, supplierInfo),
+          );
+          offers = formatted.filter((r) => !r.isAnalog);
+          analogs = formatted.filter((r) => r.isAnalog);
+
+          this.cacheResultsInBackground(liveResults, decoded);
+        } else {
+          const formatted = cached.map((p) => this.formatDbResult(p));
+          offers = formatted.filter((r) => !r.isAnalog);
+          analogs = formatted.filter((r) => r.isAnalog);
+        }
+      } catch (err) {
+        this.logger.error(
+          `Ошибка агрегации для артикула "${decoded}": ${err instanceof Error ? err.message : err}`,
+        );
+        const formatted = cached.map((p) => this.formatDbResult(p));
+        offers = formatted.filter((r) => !r.isAnalog);
+        analogs = formatted.filter((r) => r.isAnalog);
+      }
+    }
+
+    // Дополнительно ищем аналоги в БД (могли быть закэшированы ранее)
     const analogParts = await this.prisma.part.findMany({
       where: { analogFor: decoded },
       include: { supplier: true },
     });
-    const extraAnalogs = analogParts.map((p) => this.formatResult(p));
-
+    const extraAnalogs = analogParts.map((p) => this.formatDbResult(p));
+    // Убираем дубли — если аналог уже пришёл от поставщика, не добавляем его снова
     const analogIds = new Set(analogs.map((a) => a.id));
     for (const a of extraAnalogs) {
       if (!analogIds.has(a.id)) {
         analogs.push(a);
-        analogIds.add(a.id);
       }
     }
 
-    return { article: decoded, offers, analogs };
+    return { article: decoded, offers, analogs, supplierStatuses };
+  }
+
+  /** Загружает всех поставщиков из БД в Map для быстрого поиска по ID */
+  private async getSupplierMap(): Promise<Map<string, any>> {
+    const suppliers = await this.prisma.supplier.findMany();
+    return new Map(suppliers.map((s) => [s.id, s]));
+  }
+
+  /** Запускает кэширование результатов в фоне (не блокирует основной ответ) */
+  private cacheResultsInBackground(
+    results: Array<SupplierSearchResult & { supplierId: string }>,
+    searchedArticle: string,
+  ) {
+    this.doCacheResults(results, searchedArticle).catch((err) => {
+      this.logger.error(
+        `Фоновое кэширование для "${searchedArticle}" не удалось: ` +
+        `${err instanceof Error ? err.message : err}`,
+      );
+    });
+  }
+
+  /**
+   * Сохраняет результаты поиска в БД (кэширование).
+   * Для каждого результата: если запись уже есть — обновляем, если нет — создаём.
+   */
+  private async doCacheResults(
+    results: Array<SupplierSearchResult & { supplierId: string }>,
+    searchedArticle: string,
+  ) {
+    for (const r of results) {
+      // Пропускаем, если поставщика нет в БД (не создаём «висячие» записи)
+      const supplierExists = await this.prisma.supplier.findUnique({
+        where: { id: r.supplierId },
+      });
+      if (!supplierExists) continue;
+
+      const artToCache = r.article || searchedArticle;
+      // Проверяем, есть ли уже такая запчасть от этого поставщика
+      const existing = await this.prisma.part.findFirst({
+        where: {
+          supplierId: r.supplierId,
+          article: artToCache,
+          brand: r.brand,
+        },
+      });
+
+      if (existing) {
+        await this.prisma.part.update({
+          where: { id: existing.id },
+          data: {
+            name: r.name,
+            price: r.price,
+            quantity: r.quantity,
+            inStock: r.inStock ? 1 : 0,
+            deliveryDays: r.deliveryDays,
+            isAnalog: r.isAnalog ? 1 : 0,
+            analogFor: r.analogFor || null,
+            updatedAt: new Date(),
+          },
+        });
+      } else {
+        await this.prisma.part.create({
+          data: {
+            id: uuid(),
+            supplierId: r.supplierId,
+            brand: r.brand || 'N/A',
+            article: artToCache,
+            name: r.name || 'Без названия',
+            price: r.price,
+            quantity: r.quantity,
+            inStock: r.inStock ? 1 : 0,
+            deliveryDays: r.deliveryDays,
+            isAnalog: r.isAnalog ? 1 : 0,
+            analogFor: r.analogFor || null,
+          },
+        });
+      }
+    }
+
+    this.logger.log(`Закэшировано ${results.length} записей для "${searchedArticle}"`);
+  }
+
+  /**
+   * Сохраняет поисковый запрос в историю пользователя.
+   * Дедупликация: если такой же запрос был менее 5 секунд назад — не дублируем.
+   */
+  private async saveHistory(userId: string, query: string, resultsCount: number) {
+    const fiveSecondsAgo = new Date(Date.now() - 5000);
+    const duplicate = await this.prisma.searchHistory.findFirst({
+      where: {
+        userId,
+        query,
+        createdAt: { gte: fiveSecondsAgo },
+      },
+    });
+
+    if (!duplicate) {
+      await this.prisma.searchHistory.create({
+        data: {
+          id: uuid(),
+          userId,
+          query,
+          resultsCount,
+        },
+      });
+    }
   }
 }

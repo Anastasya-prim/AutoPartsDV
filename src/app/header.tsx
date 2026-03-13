@@ -1,3 +1,13 @@
+/**
+ * Header — шапка сайта (логотип + кнопка «Войти» / «Профиль»).
+ *
+ * "use client" — компонент рендерится на клиенте (в браузере), потому что
+ * ему нужен доступ к localStorage и событиям window.
+ *
+ * Как узнаёт про вход/выход:
+ * - Слушает событие "auth-change" (шлётся из setToken/removeToken в api.ts)
+ * - Слушает "storage" (если токен изменился в другой вкладке браузера)
+ */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -8,11 +18,14 @@ export default function Header() {
   const [loggedIn, setLoggedIn] = useState(false);
 
   useEffect(() => {
+    // При первом рендере проверяем, есть ли токен
     setLoggedIn(isLoggedIn());
 
+    // Подписываемся на изменения авторизации (из текущей и других вкладок)
     function onAuthChange() { setLoggedIn(isLoggedIn()); }
     window.addEventListener("auth-change", onAuthChange);
     window.addEventListener("storage", onAuthChange);
+    // Очистка подписок при размонтировании компонента
     return () => {
       window.removeEventListener("auth-change", onAuthChange);
       window.removeEventListener("storage", onAuthChange);

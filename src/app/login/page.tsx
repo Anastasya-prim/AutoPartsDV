@@ -1,3 +1,10 @@
+/**
+ * Страница входа — /login
+ *
+ * Форма: email + пароль → POST /api/auth/login.
+ * При успехе: сохраняем JWT-токен и переходим в профиль.
+ * При ошибке: показываем сообщение (неверный email/пароль и т.д.).
+ */
 "use client";
 
 import { useState } from "react";
@@ -5,6 +12,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, setToken } from "@/lib/api";
 
+/** Формат ответа от сервера при логине/регистрации */
 interface AuthResponse {
   user: { id: string; name: string; email: string; role: string; registeredAt: string };
   token: string;

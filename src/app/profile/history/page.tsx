@@ -1,3 +1,9 @@
+/**
+ * Страница истории поиска — /profile/history
+ *
+ * Показывает все поисковые запросы пользователя, сгруппированные по дням
+ * (Сегодня / Вчера / 12 марта). Можно очистить всю историю или повторить запрос.
+ */
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -12,11 +18,13 @@ interface HistoryItem {
   createdAt: string;
 }
 
+/** Группа записей за один день (для отображения заголовков «Сегодня», «Вчера»...) */
 interface DayGroup {
   day: string;
   items: HistoryItem[];
 }
 
+/** Группирует записи истории по дням (Сегодня / Вчера / дата) */
 function groupByDay(items: HistoryItem[]): DayGroup[] {
   const groups: Record<string, HistoryItem[]> = {};
   const today = new Date().toDateString();

@@ -1,3 +1,13 @@
+/**
+ * Страница карточки запчасти — /part/[article]
+ *
+ * Показывает все предложения по конкретному артикулу:
+ * - Название, бренд, лучшая цена
+ * - Таблица предложений от разных поставщиков (сортировка по цене)
+ * - Аналоги и заменители (если есть)
+ *
+ * Параметр ?from=... используется для кнопки «Назад к поиску».
+ */
 "use client";
 
 import { Suspense, useState, useEffect } from "react";
@@ -6,6 +16,7 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import type { SearchResult } from "@/lib/types";
 
+/** Формат ответа от GET /api/parts/:article */
 interface PartResponse {
   article: string;
   offers: SearchResult[];
@@ -29,11 +40,12 @@ export default function PartPage() {
   );
 }
 
+/** Основной контент карточки запчасти */
 function PartContent() {
   const { article } = useParams<{ article: string }>();
   const searchParams = useSearchParams();
-  const decoded = decodeURIComponent(article);
-  const fromQuery = searchParams.get("from") || decoded;
+  const decoded = decodeURIComponent(article);  // Артикул из URL (декодируем %XX)
+  const fromQuery = searchParams.get("from") || decoded; // Откуда пришли (для кнопки «Назад»)
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -65,6 +77,7 @@ function PartContent() {
     return () => { cancelled = true; };
   }, [decoded]);
 
+  // Находим минимальную цену среди всех предложений для блока «Лучшая цена»
   const bestPrice = offers.length ? Math.min(...offers.map((r) => r.price)) : null;
   const partName = offers[0]?.name || "Запчасть";
   const partBrand = offers[0]?.brand || "";

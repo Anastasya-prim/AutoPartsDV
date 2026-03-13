@@ -1,0 +1,194 @@
+<!DOCTYPE html><html lang="ru" data-default-culture="ru"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TISS</title>
+    <link rel="icon" type="image/png" sizes="16x16" href="/identity/assets/images/favicon/favicon-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/identity/assets/images/favicon/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/identity/assets/images/favicon/favicon-192x192.png">
+    <link rel="stylesheet" href="/identity/assets/css/main.min.css">
+    
+</head>
+<body>
+    
+<div class="app-page login-page">
+    <main class="app-page__container">
+        
+<div class="logo">
+    <a href="https://my.tiss.ru">
+        <img class="logo__image" src="/identity/assets/images/logo-main.svg" alt="logo">
+    </a>
+</div>
+
+        
+        <div class="app-page__content py-md-3 px-lg-2">
+            <div class="app-page__subtitle">Войдите, чтобы продолжить</div>
+            <form class="app-page__form app-form" id="form" method="post" novalidate="">
+                <div class="app-form__header app-form__header--margin-s">
+                    <div class="app-form__message-container">
+                        <div class="app-form__message-container-errors">
+                        </div>
+                    </div>
+                </div>
+                <div class="app-form__input-group">
+                    <label for="login" class="app-form__label">E-mail</label>
+                    <input type="text" id="login" class="app-form__field empty login-page__login" placeholder="E-mail" name="Login" autocomplete="username" required="" autofocus="" style="">
+                </div>
+                <div class="app-form__input-group app-form__input-group--with-icon">
+                    <label for="password" class="app-form__label">Пароль</label>
+                    <input type="password" id="password" class="app-form__field empty login-page__password" placeholder="Пароль" name="Password" required="" autocomplete="current-password" style="">
+                    <button tabindex="-1" type="button" data-field="password" class="app-form__icon input-group__icon visibility-button">
+                        <svg class="svg-icon"><use href="/identity/assets/images/sprite.svg#eye"></use></svg>
+                    </button>
+                    <div class="app-form__validation-message"></div>
+                </div>
+                <div class="app-form__section">
+                    <a class="app-form__link login-page__forgot" href="/identity/forgot-password?ReturnUrl=%2Fidentity%2Fconnect%2Fauthorize%2Fcallback%3Fresponse_type%3Dcode%26client_id%3Dangular%26state%3DUzRZT0U3a3pOMHBMWUxFSnl5TkdDV01JcW5FXy10Y2FPazB3QmQxS2RyUzRJsemicolon%25252F%26redirect_uri%3Dhttps%253A%252F%252Fmy.tiss.ru%252Fafter-login%26scope%3Dopenid%2520bff_b2bweb_api%2520offline_access%26code_challenge%3DNcSKK7f7TQyfhfAukaI_FcAsa0jr7A8Q_O71zVlPIUY%26code_challenge_method%3DS256%26nonce%3DUzRZT0U3a3pOMHBMWUxFSnl5TkdDV01JcW5FXy10Y2FPazB3QmQxS2RyUzRJ">Не помню пароль</a>
+                </div>
+
+
+                
+
+
+
+            <button type="submit" id="submitButton" name="submitButton" class="app-form__button btn" disabled="">Войти</button>
+
+
+
+            
+<div class="language-switcher">
+    <select id="languageSelect" onchange="changeLanguage(this.value)">
+                <option value="ru" selected="">Русский</option>
+                <option value="en">English</option>
+    </select>
+</div>
+
+
+<script>
+    const pathBase = "/identity";
+
+    function changeLanguage(culture) {
+        const currentCulture = getCurrentCulture();
+        if (currentCulture === culture) {
+            return; 
+        }
+
+        setCultureCookie(culture);
+
+        fetch(`${pathBase}/Language/ChangeLanguage`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ culture: culture })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                setTimeout(() => window.location.reload(), 300);
+            }
+        });
+    }
+
+    function getCurrentCulture() {
+        const cookies = document.cookie.split(";");
+        let cultureCookie = cookies.find((cookie) =>
+            cookie.trim().startsWith(".AspNetCore.Culture=")
+        );
+
+        if (cultureCookie) {
+            const cookieValue = cultureCookie.trim().split("=")[1];
+            const cultureMatch = cookieValue.match(/c=([^|]+)/);
+
+            if (cultureMatch && cultureMatch[1]) {
+                return cultureMatch[1].toLowerCase();
+            }
+        }
+
+        const htmlLang = document.documentElement.lang;
+        if (htmlLang) {
+            if (htmlLang.toLowerCase().startsWith("ru")) return "ru";
+            if (htmlLang.toLowerCase().startsWith("en")) return "en";
+            if (htmlLang.toLowerCase().startsWith("kk")) return "kk";
+            if (htmlLang.toLowerCase().startsWith("tr")) return "tr";
+        }
+
+        const languageSelect = document.getElementById("languageSelect");
+        if (languageSelect && languageSelect.value) {
+            return languageSelect.value;
+        }
+
+        return "ru";
+    }
+
+    function setCultureCookie(culture) {
+        const expiryDate = new Date();
+        expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+        document.cookie = `.AspNetCore.Culture=c=${culture}|uic=${culture}; path=/; expires=${expiryDate.toUTCString()}`;
+    }
+
+    function syncLanguageSelector() {
+        const currentCulture = getCurrentCulture();
+        const languageSelect = document.getElementById("languageSelect");
+        if (languageSelect && languageSelect.value !== currentCulture) {
+            languageSelect.value = currentCulture;
+        }
+    }
+
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'lang') {
+                syncLanguageSelector();
+            }
+        });
+    });
+
+    function ensureDefaultCulture() {
+        const defaultCulture = "ru";
+        const cookies = document.cookie.split(";");
+        let cultureCookie = cookies.find((cookie) =>
+            cookie.trim().startsWith(".AspNetCore.Culture=")
+        );
+        
+        if (!cultureCookie) {
+            setCultureCookie(defaultCulture);
+            setTimeout(() => {
+                window.location.reload();
+            }, 100);
+            return;
+        }
+        
+        const cookieValue = cultureCookie.trim().split("=")[1];
+        const cultureMatch = cookieValue.match(/c=([^|]+)/);
+    }
+
+    ensureDefaultCulture();
+
+    document.addEventListener("DOMContentLoaded", () => {
+        syncLanguageSelector();
+        
+        observer.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['lang']
+        });
+    });
+
+    window.addEventListener('pageshow', syncLanguageSelector);
+    window.addEventListener('popstate', syncLanguageSelector);
+</script> 
+            <input name="__RequestVerificationToken" type="hidden" value="CfDJ8B-X6YBOCEBJnHQv9TGx11V0C5_1ZT3GOiC-3n051FDi61TRs2M9rWjgCdo6E_fCmCXzlTFZWTycSPi9xBV8M-lxVEWJVOO8j9QUuCfl1GgQs73T-G-YAFlKu5ufYcJtThnZRU5mMY_jDgkduJrVOqo" style=""></form>
+        </div>
+       <footer class="app-page__footer">
+            
+
+<div class="app-page__footer-description">© «ТИСС», 2026. Оптовый дистрибьютор автозапчастей</div> 
+        </footer>
+    </main>
+</div>
+
+
+
+    <script src="/identity/assets/js/main.min.js"></script>
+    
+
+
+ </body></html>

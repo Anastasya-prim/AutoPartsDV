@@ -1,3 +1,11 @@
+/**
+ * ProfileController — просмотр и редактирование профиля пользователя.
+ *
+ * GET /api/profile  — получить данные текущего пользователя
+ * PUT /api/profile  — обновить имя и/или email
+ *
+ * Все эндпоинты требуют JWT-токен (JwtAuthGuard на уровне контроллера).
+ */
 import { Controller, Get, Put, Body, UseGuards, Request, NotFoundException } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PrismaService } from '../prisma/prisma.service';

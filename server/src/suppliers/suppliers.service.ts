@@ -1,3 +1,7 @@
+/**
+ * SuppliersService — CRUD-операции с поставщиками в БД.
+ * Используется в админ-панели для управления списком поставщиков.
+ */
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 

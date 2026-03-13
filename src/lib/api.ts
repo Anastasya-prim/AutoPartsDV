@@ -1,24 +1,44 @@
+/**
+ * API-клиент фронтенда — единственное место, через которое происходит
+ * общение с бэкендом (NestJS на порту 4000).
+ *
+ * Также здесь управление JWT-токеном:
+ * - getToken / setToken / removeToken — работа с localStorage
+ * - При setToken/removeToken шлётся событие "auth-change",
+ *   чтобы Header мгновенно обновил кнопку «Войти» / «Профиль»
+ */
+
+/** Базовый URL бэкенда — берётся из переменной окружения или по умолчанию localhost:4000 */
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 
+/** Получить JWT-токен из localStorage (null если нет или рендер на сервере) */
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("token");
 }
 
+/** Сохранить токен и уведомить все компоненты об изменении авторизации */
 export function setToken(token: string): void {
   localStorage.setItem("token", token);
   window.dispatchEvent(new Event("auth-change"));
 }
 
+/** Удалить токен (выход) и уведомить компоненты */
 export function removeToken(): void {
   localStorage.removeItem("token");
   window.dispatchEvent(new Event("auth-change"));
 }
 
+/** Проверка: авторизован ли пользователь (есть ли токен) */
 export function isLoggedIn(): boolean {
   return !!getToken();
 }
 
+/**
+ * Достаёт роль пользователя прямо из JWT-токена (без запроса к серверу).
+ * JWT состоит из 3 частей: header.payload.signature (разделены точкой).
+ * atob() декодирует payload из base64, где хранятся userId, email, role.
+ */
 export function getUserRole(): string | null {
   const token = getToken();
   if (!token) return null;
@@ -31,11 +51,20 @@ export function getUserRole(): string | null {
 }
 
 type FetchOptions = {
-  method?: string;
-  body?: unknown;
-  auth?: boolean;
+  method?: string;   // HTTP-метод (GET, POST, PUT, DELETE)
+  body?: unknown;     // Тело запроса (будет JSON.stringify)
+  auth?: boolean;     // Добавить ли заголовок Authorization с токеном
 };
 
+/**
+ * Универсальная функция для запросов к бэкенду.
+ *
+ * Пример использования:
+ *   const data = await api<SearchResponse>("/search?q=48157", { auth: true });
+ *   const result = await api("/auth/login", { method: "POST", body: { email, password } });
+ *
+ * При ошибке бросает Error с сообщением от сервера.
+ */
 export async function api<T = unknown>(path: string, opts: FetchOptions = {}): Promise<T> {
   const { method = "GET", body, auth = false } = opts;
 

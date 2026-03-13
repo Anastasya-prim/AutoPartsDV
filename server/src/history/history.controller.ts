@@ -1,3 +1,12 @@
+/**
+ * HistoryController — HTTP-эндпоинты истории поиска.
+ *
+ * GET    /api/history      — получить историю
+ * DELETE /api/history      — очистить всю историю
+ * DELETE /api/history/:id  — удалить одну запись
+ *
+ * Все эндпоинты требуют JWT-токен.
+ */
 import { Controller, Get, Delete, Param, UseGuards, Request } from '@nestjs/common';
 import { HistoryService } from './history.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';

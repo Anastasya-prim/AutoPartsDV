@@ -1,3 +1,13 @@
+/**
+ * OptionalJwtAuthGuard — «мягкая» проверка токена.
+ *
+ * В отличие от JwtAuthGuard, этот guard НЕ блокирует запрос без токена.
+ * Если токен есть и он валидный — заполняет req.user.
+ * Если токена нет или он невалидный — пропускает запрос (req.user = undefined).
+ *
+ * Используется на эндпоинте поиска: если пользователь авторизован —
+ * запрос сохранится в историю; если нет — поиск всё равно сработает.
+ */
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 
@@ -17,9 +27,10 @@ export class OptionalJwtAuthGuard implements CanActivate {
         });
         request.user = payload;
       } catch {
-        // Игнорируем ошибку, так как авторизация опциональна
+        // Токен невалидный — ничего страшного, просто пропускаем
       }
     }
+    // Всегда возвращаем true — запрос пройдёт в любом случае
     return true;
   }
 }

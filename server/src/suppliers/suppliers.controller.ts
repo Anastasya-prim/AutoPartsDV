@@ -1,3 +1,11 @@
+/**
+ * SuppliersController — HTTP-эндпоинты управления поставщиками.
+ *
+ * GET    /api/suppliers      — список всех поставщиков (публичный)
+ * POST   /api/suppliers      — создать поставщика (только admin)
+ * PUT    /api/suppliers/:id  — обновить поставщика (только admin)
+ * DELETE /api/suppliers/:id  — удалить поставщика (только admin)
+ */
 import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
 import { SuppliersService } from './suppliers.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';

@@ -1,3 +1,13 @@
+/**
+ * PrismaExceptionFilter — глобальный фильтр ошибок Prisma.
+ *
+ * Prisma бросает специфические ошибки с кодами (P2002, P2003, P2025).
+ * Без этого фильтра клиент получил бы невнятный 500 Internal Server Error.
+ * Фильтр преобразует их в понятные HTTP-ответы:
+ * - P2002 (unique constraint) → 409 Conflict
+ * - P2003 (foreign key)       → 400 Bad Request
+ * - P2025 (record not found)  → 404 Not Found
+ */
 import { ExceptionFilter, Catch, ArgumentsHost, HttpStatus } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
 import { Response } from 'express';

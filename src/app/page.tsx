@@ -1,8 +1,17 @@
+/**
+ * Главная страница — /
+ *
+ * Содержит:
+ * - Поле поиска с кнопкой «Найти»
+ * - Примеры популярных артикулов (кнопки быстрого поиска)
+ * - Блок «Как это работает» (3 шага)
+ */
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+/** Примеры артикулов для быстрого запуска поиска */
 const popularQueries = ["48157-33062", "90915-YZZD1", "04465-33471"];
 
 export default function HomePage() {

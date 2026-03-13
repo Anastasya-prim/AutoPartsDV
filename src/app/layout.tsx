@@ -1,3 +1,10 @@
+/**
+ * RootLayout — корневой layout приложения.
+ *
+ * Оборачивает ВСЕ страницы: <Header> + <main>{children}</main> + <Footer>.
+ * metadata — SEO-теги (title, description) для поисковых систем.
+ * Это серверный компонент (без "use client"), поэтому Header импортируется отдельно.
+ */
 import type { Metadata } from "next";
 import "./globals.css";
 import Header from "./header";
