@@ -15,6 +15,7 @@ import { SuppliersModule } from './suppliers/suppliers.module';
 import { HistoryModule } from './history/history.module';
 import { ProfileModule } from './profile/profile.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { PrismaModule } from './prisma/prisma.module';
     ConfigModule.forRoot({ isGlobal: true }),
 
     PrismaModule,       // Подключение к SQLite через Prisma ORM
+    MailModule,          // Email-уведомления через UniSender
     AuthModule,          // Регистрация, вход, JWT-токены
     UsersModule,         // Сервис поиска пользователей
     PartsModule,         // Поиск запчастей + агрегация от поставщиков

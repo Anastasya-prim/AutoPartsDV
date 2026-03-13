@@ -11,6 +11,7 @@
 import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
+import { MailService } from '../mail/mail.service';
 import * as bcrypt from 'bcryptjs';
 import { v4 as uuid } from 'uuid';
 
@@ -19,6 +20,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private mailService: MailService,
   ) {}
 
   /** Регистрация нового пользователя: хэшируем пароль, создаём запись, выдаём токен */
@@ -37,6 +39,10 @@ export class AuthService {
     });
 
     const token = this.jwtService.sign({ userId: user.id, email: user.email, role: user.role });
+
+    // Fire-and-forget: письмо-приветствие не блокирует ответ клиенту
+    this.mailService.sendWelcome(user.email, user.name).catch(() => {});
+
     return { token, user: { id: user.id, name: user.name, email: user.email, role: user.role } };
   }
 

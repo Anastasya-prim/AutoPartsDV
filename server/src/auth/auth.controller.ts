@@ -10,6 +10,7 @@ import { Controller, Post, Put, Body, UseGuards, Request, UnauthorizedException 
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
+import { MailService } from '../mail/mail.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -20,6 +21,7 @@ export class AuthController {
   constructor(
     private authService: AuthService,
     private prisma: PrismaService,
+    private mailService: MailService,
   ) {}
 
   @Post('register')
@@ -47,6 +49,9 @@ export class AuthController {
       where: { id: req.user.userId },
       data: { passwordHash: newHash },
     });
+
+    // Fire-and-forget: уведомление о смене пароля не блокирует ответ
+    this.mailService.sendPasswordChanged(user.email, user.name).catch(() => {});
 
     return { message: 'Пароль успешно изменён' };
   }
