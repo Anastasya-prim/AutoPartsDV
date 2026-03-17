@@ -7,6 +7,7 @@
  * - PUT  /api/auth/password  — смена пароля (требует авторизацию)
  */
 import { Controller, Post, Put, Body, UseGuards, Request, UnauthorizedException } from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
@@ -17,6 +18,8 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import * as bcrypt from 'bcryptjs';
 
 @Controller('api/auth')
+@UseGuards(ThrottlerGuard)
+@Throttle({ default: { limit: 5, ttl: 60_000 } }) // 5 запросов в минуту с одного IP на login/register
 export class AuthController {
   constructor(
     private authService: AuthService,

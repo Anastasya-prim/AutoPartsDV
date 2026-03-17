@@ -8,6 +8,7 @@
  */
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { PartsModule } from './parts/parts.module';
@@ -21,6 +22,9 @@ import { MailModule } from './mail/mail.module';
   imports: [
     // ConfigModule читает .env и делает переменные доступными через ConfigService
     ConfigModule.forRoot({ isGlobal: true }),
+
+    // Лимит запросов по IP (для auth — строже, задаётся в AuthController)
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 200 }]),
 
     PrismaModule,       // Подключение к SQLite через Prisma ORM
     MailModule,          // Email-уведомления через UniSender

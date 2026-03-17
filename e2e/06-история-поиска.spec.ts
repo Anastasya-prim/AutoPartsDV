@@ -16,7 +16,7 @@ test.describe('История поиска', () => {
     // Переходим в историю (ждём контент после гидрации и ответа API)
     await page.goto('/profile/history', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('h1', { hasText: 'История поиска' })).toBeVisible({ timeout: 20_000 });
-    await expect(page.locator('text=48157-33062')).toBeVisible();
+    await expect(page.getByText('48157-33062').first()).toBeVisible();
   });
 
   test('Из истории можно повторить запрос', async ({ page }) => {

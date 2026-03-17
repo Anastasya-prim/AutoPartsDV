@@ -9,6 +9,16 @@
 
 const BRAND_COLOR = '#2563eb';
 
+/** Экранирует строку для безопасной подстановки в HTML (защита от XSS в письмах). */
+function escapeHtml(s: string): string {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function layout(content: string): string {
   return `
 <!DOCTYPE html>
@@ -46,16 +56,16 @@ function layout(content: string): string {
 }
 
 /** Письмо-приветствие после регистрации */
-export function welcomeEmail(name: string) {
+export function welcomeEmail(name: string, baseUrl: string) {
   const content = `
-    <h1 style="margin:0 0 16px;font-size:24px;color:#111827;">Добро пожаловать, ${name}!</h1>
+    <h1 style="margin:0 0 16px;font-size:24px;color:#111827;">Добро пожаловать, ${escapeHtml(name)}!</h1>
     <p style="margin:0 0 12px;font-size:15px;color:#374151;line-height:1.6;">
       Вы успешно зарегистрировались в <strong>AutoPartsDV</strong> — агрегаторе автозапчастей Дальнего Востока.
     </p>
     <p style="margin:0 0 24px;font-size:15px;color:#374151;line-height:1.6;">
       Теперь вы можете искать запчасти по артикулу и сравнивать цены у нескольких поставщиков одновременно.
     </p>
-    <a href="http://localhost:3000"
+    <a href="${escapeHtml(baseUrl)}"
        style="display:inline-block;background:${BRAND_COLOR};color:#ffffff;font-size:15px;font-weight:600;padding:12px 28px;border-radius:8px;text-decoration:none;">
       Перейти к поиску
     </a>
@@ -75,7 +85,7 @@ export function passwordChangedEmail(name: string) {
   const content = `
     <h1 style="margin:0 0 16px;font-size:24px;color:#111827;">Пароль изменён</h1>
     <p style="margin:0 0 12px;font-size:15px;color:#374151;line-height:1.6;">
-      ${name}, ваш пароль в AutoPartsDV был успешно изменён <strong>${now}</strong>.
+      ${escapeHtml(name)}, ваш пароль в AutoPartsDV был успешно изменён <strong>${now}</strong>.
     </p>
     <p style="margin:0 0 24px;font-size:15px;color:#374151;line-height:1.6;">
       Если вы не меняли пароль — срочно свяжитесь с нами или смените пароль заново.

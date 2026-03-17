@@ -22,9 +22,13 @@ async function bootstrap() {
   }
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  
-  // Разрешаем запросы с фронтенда (другой порт — localhost:3000)
-  app.enableCors();
+
+  // CORS: только с указанного фронтенда (в проде — ваш домен из .env)
+  const frontendOrigin = process.env.FRONTEND_URL || 'http://localhost:3000';
+  app.enableCors({
+    origin: frontendOrigin,
+    credentials: true,
+  });
 
   // Фильтр ловит ошибки Prisma (P2002, P2025...) и возвращает понятные HTTP-ответы
   app.useGlobalFilters(new PrismaExceptionFilter());
