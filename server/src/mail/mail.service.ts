@@ -27,11 +27,13 @@ export class MailService implements OnModuleInit {
   private readonly smtpUser: string;
   private readonly smtpPass: string;
   private readonly senderName: string;
+  private readonly frontendUrl: string;
 
   constructor(private readonly config: ConfigService) {
     this.smtpUser = this.config.get('SMTP_USER', '');
     this.smtpPass = this.config.get('SMTP_PASS', '');
     this.senderName = this.config.get('SMTP_SENDER_NAME', 'AutoPartsDV');
+    this.frontendUrl = this.config.get('FRONTEND_URL', 'http://localhost:3000');
   }
 
   async onModuleInit() {
@@ -69,7 +71,7 @@ export class MailService implements OnModuleInit {
 
   /** Письмо-приветствие после регистрации (fire-and-forget) */
   async sendWelcome(email: string, name: string): Promise<void> {
-    const { subject, body } = welcomeEmail(name);
+    const { subject, body } = welcomeEmail(name, this.frontendUrl);
     await this.send(email, subject, body);
   }
 

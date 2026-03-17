@@ -153,9 +153,15 @@ export class PartsService {
     const exact = results.filter((r) => !r.isAnalog);
     const analogs = results.filter((r) => r.isAnalog);
 
-    // Если пользователь авторизован — сохраняем запрос в историю (в фоне)
+    // Если пользователь авторизован — сохраняем в историю до ответа (иначе гонка с /profile/history)
     if (userId) {
-      this.saveHistory(userId, query, results.length).catch(() => {});
+      try {
+        await this.saveHistory(userId, query, results.length);
+      } catch (err) {
+        this.logger.warn(
+          `История поиска не сохранена: ${err instanceof Error ? err.message : err}`,
+        );
+      }
     }
 
     return { query, total: results.length, exact, analogs, supplierStatuses };
