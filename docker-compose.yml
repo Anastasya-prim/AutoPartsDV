@@ -1,5 +1,5 @@
 # Запуск: скопируйте server/.env.example → server/.env, задайте JWT_SECRET и FRONTEND_URL.
-# В корне (опционально) файл .env с NEXT_PUBLIC_API_URL для сборки фронта — см. deploy/env.example
+# Корневой .env с NEXT_PUBLIC_API_URL нужен только если API на другом хосте (по умолчанию в образе /api)
 services:
   api:
     build:
@@ -21,7 +21,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost/api}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
     restart: unless-stopped
     environment:
       NODE_ENV: production

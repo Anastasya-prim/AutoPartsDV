@@ -12,7 +12,8 @@ COPY . .
 # Next ожидает каталог public; если его нет в репо — создаём пустой (иначе COPY в runner падает)
 RUN mkdir -p public
 
-ARG NEXT_PUBLIC_API_URL=http://localhost/api
+# По умолчанию относительный /api — работает за Nginx без .env с IP
+ARG NEXT_PUBLIC_API_URL=/api
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
 RUN npm run build

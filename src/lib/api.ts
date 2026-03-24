@@ -8,8 +8,12 @@
  *   чтобы Header мгновенно обновил кнопку «Войти» / «Профиль»
  */
 
-/** Базовый URL бэкенда — берётся из переменной окружения или по умолчанию localhost:4000 */
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+/**
+ * База URL API. По умолчанию `/api` — тот же хост, что у сайта (Nginx → Nest).
+ * Для `next dev` прокси настроен в next.config.ts → localhost:4000.
+ * Иной хост: NEXT_PUBLIC_API_URL=https://api.example.com/api
+ */
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api";
 
 /** Получить JWT-токен из localStorage (null если нет или рендер на сервере) */
 export function getToken(): string | null {
@@ -87,7 +91,7 @@ export async function api<T = unknown>(path: string, opts: FetchOptions = {}): P
   } catch {
     const hint =
       raw.trimStart().startsWith("<")
-        ? " Пришла HTML-страница вместо JSON: чаще всего NEXT_PUBLIC_API_URL без суффикса /api (запрос уходит на Next.js, а не на бэкенд). Пересоберите образ web с NEXT_PUBLIC_API_URL=http://ВАШ_ХОСТ/api"
+        ? " Пришла HTML вместо JSON: проверьте, что запрос идёт на /api (обновите образ web: git pull && docker compose build --no-cache web). Убедитесь, что FRONTEND_URL в server/.env совпадает с адресом сайта."
         : "";
     throw new Error(`Ответ сервера не JSON.${hint}`);
   }
