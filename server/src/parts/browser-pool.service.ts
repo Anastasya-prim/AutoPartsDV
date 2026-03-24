@@ -3,7 +3,7 @@
  *
  * Для парсинга сайтов поставщиков нужен настоящий браузер (многие сайты
  * рендерятся через JavaScript). Этот сервис:
- * - Запускает Chromium один раз при старте сервера (OnModuleInit)
+ * - Лениво поднимает Chromium при первом newPage() (в Docker нужен playwright install в образе)
  * - Закрывает при остановке (OnModuleDestroy)
  * - Для каждого запроса создаёт новый контекст (изолированные cookie)
  *   и новую страницу через newPage()
@@ -18,16 +18,13 @@ export class BrowserPoolService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(BrowserPoolService.name);
   private browser: Browser | null = null;
 
-  /** Запуск Chromium при старте NestJS-приложения */
-  async onModuleInit() {
-    try {
-      this.browser = await chromium.launch({ headless: true });
-      this.logger.log('Chromium запущен');
-    } catch (err) {
-      this.logger.error(
-        `Не удалось запустить Chromium: ${err instanceof Error ? err.message : err}`,
-      );
-    }
+  /**
+   * Не запускаем Chromium при старте: в Docker-образе нет `playwright install`,
+   * синхронный launch блокировал бы bootstrap — HTTP не слушал бы порт (Connection refused).
+   * Браузер поднимается лениво в newPage() при первом поиске.
+   */
+  onModuleInit() {
+    this.logger.log('Chromium: ленивый старт при первом запросе к поставщикам');
   }
 
   /** Закрытие браузера при остановке сервера */

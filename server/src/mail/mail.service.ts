@@ -9,6 +9,9 @@
  * Если SMTP_USER или SMTP_PASS не заданы — сервис работает в «тихом» режиме:
  * логирует предупреждение, но не падает и не блокирует остальной код.
  *
+ * Проверка соединения (verify) выполняется в фоне — Nest сразу слушает HTTP,
+ * иначе при недоступном Gmail таймаут verify блокировал старт на минуты.
+ *
  * Все методы отправки возвращают void и никогда не бросают исключения —
  * ошибки ловятся внутри и логируются.
  */
@@ -36,7 +39,7 @@ export class MailService implements OnModuleInit {
     this.frontendUrl = this.config.get('FRONTEND_URL', 'http://localhost:3000');
   }
 
-  async onModuleInit() {
+  onModuleInit() {
     if (!this.smtpUser || !this.smtpPass) {
       this.logger.warn(
         'SMTP_USER или SMTP_PASS не заданы — email-уведомления отключены. ' +
@@ -53,6 +56,12 @@ export class MailService implements OnModuleInit {
       },
     });
 
+    void this.verifySmtpInBackground();
+  }
+
+  /** Не блокирует bootstrap: пока verify идёт, enabled остаётся false. */
+  private async verifySmtpInBackground(): Promise<void> {
+    if (!this.transporter) return;
     try {
       await this.transporter.verify();
       this.enabled = true;
