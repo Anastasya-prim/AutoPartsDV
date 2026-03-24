@@ -43,8 +43,8 @@ async function bootstrap() {
     forbidNonWhitelisted: true,
   }));
   
-  // Раздаём файлы из папки public/ (например, test.html для ручного тестирования API)
-  app.useStaticAssets(path.join(__dirname, '..', 'public'));
+  // Раздаём public/ от корня приложения (и в dev, и в Docker: cwd = server/ или /app)
+  app.useStaticAssets(path.join(process.cwd(), 'public'));
   
   const PORT = process.env.PORT || 4000;
   // 0.0.0.0 — чтобы контейнер принимал соединения от Nginx/Docker-сети, не только localhost
