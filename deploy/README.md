@@ -35,11 +35,19 @@ docker compose logs -f api
 
 Базовый образ API **не** ставит Chromium. Если в проде нужен полный парсинг, расширяйте `server/Dockerfile` (зависимости Playwright / `npx playwright install-deps`) и увеличивайте лимиты RAM на VPS.
 
-## 5. Поиск: «Пришла HTML-страница вместо JSON»
+## 5. Поиск: «Пришла HTML вместо JSON»
 
-Чаще всего запрос ушёл **не** в Nest (например старый образ с `http://localhost/api` — с ПК пользователя «localhost» это не ваш VPS). В актуальном репо по умолчанию **`/api`** на том же хосте.
+На сервере проверка (должен быть JSON, не `<html>`):
 
-**Исправление:** `git pull`, затем `docker compose build --no-cache web && docker compose up -d`. Проверьте `server/.env`: **`FRONTEND_URL`** = как открываете сайт (`http://IP` или `https://домен`).
+```bash
+curl -sS http://127.0.0.1/api/suppliers | head -c 300
+```
+
+Если здесь HTML — смотрите `docker compose ps`, `docker compose logs api`, `docker compose logs nginx`. Образы: `git pull && docker compose build --no-cache && docker compose up -d`.
+
+В браузере после обновления образа сделайте **жёсткое обновление** (Ctrl+Shift+R), чтобы не подтянулся старый JS из кэша.
+
+`server/.env`: **`FRONTEND_URL`** должен совпадать с тем, как открываете сайт (`http://IP` без слэша в конце).
 
 ## 6. Сборка `api`: timeout к `deb.debian.org`
 

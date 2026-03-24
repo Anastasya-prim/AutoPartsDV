@@ -9,11 +9,25 @@
  */
 
 /**
- * База URL API. По умолчанию `/api` — тот же хост, что у сайта (Nginx → Nest).
- * Для `next dev` прокси настроен в next.config.ts → localhost:4000.
- * Иной хост: NEXT_PUBLIC_API_URL=https://api.example.com/api
+ * База URL для запросов к Nest.
+ * - Полный URL в NEXT_PUBLIC_API_URL — если API на другом домене.
+ * - Иначе в браузере: window.location.origin + префикс (по умолчанию /api).
+ *   Так запрос всегда идёт на тот же хост, что и страница (Nginx → api), даже если
+ *   в старом бандле был зашит localhost или неверный bake.
+ * - На SSR: относительный префикс (обычно fetch из api() не вызывается на сервере).
  */
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api";
+function getApiBase(): string {
+  const env = process.env.NEXT_PUBLIC_API_URL?.trim() ?? "";
+  if (/^https?:\/\//i.test(env)) {
+    return env.replace(/\/+$/, "");
+  }
+  const prefix =
+    env.startsWith("/") && env.length > 0 ? env.replace(/\/+$/, "") : "/api";
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}${prefix}`;
+  }
+  return prefix;
+}
 
 /** Получить JWT-токен из localStorage (null если нет или рендер на сервере) */
 export function getToken(): string | null {
@@ -78,7 +92,7 @@ export async function api<T = unknown>(path: string, opts: FetchOptions = {}): P
     if (token) headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${getApiBase()}${path}`, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
@@ -91,7 +105,7 @@ export async function api<T = unknown>(path: string, opts: FetchOptions = {}): P
   } catch {
     const hint =
       raw.trimStart().startsWith("<")
-        ? " Пришла HTML вместо JSON: проверьте, что запрос идёт на /api (обновите образ web: git pull && docker compose build --no-cache web). Убедитесь, что FRONTEND_URL в server/.env совпадает с адресом сайта."
+        ? " Пришла HTML вместо JSON: на VPS выполните curl -sS http://127.0.0.1/api/suppliers | head -c 200 — должен быть JSON. Если HTML — проверьте docker compose ps и логи api/nginx. Обновите: git pull && docker compose build --no-cache && docker compose up -d. В браузере: жёсткое обновление (Ctrl+Shift+R)."
         : "";
     throw new Error(`Ответ сервера не JSON.${hint}`);
   }
