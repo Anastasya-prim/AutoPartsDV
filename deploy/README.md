@@ -27,9 +27,51 @@ docker compose logs -f api
 
 Сайт: `http://ВАШ_IP` (или домен, если DNS указывает на VPS).
 
-## 3. HTTPS (Let’s Encrypt)
+## 3. HTTPS (Let’s Encrypt + Nginx в Docker)
 
-На хосте установите certbot и настройте отдельный `server` в Nginx на 443 или вынесите TLS на внешний балансировщик. После включения HTTPS обновите `FRONTEND_URL` и `NEXT_PUBLIC_API_URL` на `https://...` и пересоберите `web`.
+**Важно:** стандартный бесплатный сертификат Let’s Encrypt выдаётся **на доменное имя** (A-запись на IP VPS). Для одного только IP без домена такой способ обычно **не подходит** — заведите домен (в т.ч. у reg.ru) и направьте его на сервер.
+
+### Шаги
+
+1. **DNS**  
+   Запись типа **A**: `ваш-домен.ru` → IP сервера (при необходимости отдельно `www`).
+
+2. **Сертификат на хосте VPS** (контейнеры на время выпуска лучше остановить, чтобы занять порт 80):
+
+   ```bash
+   cd /opt/autoparsdv   # каталог проекта
+   docker compose stop nginx
+   sudo apt update && sudo apt install -y certbot
+   sudo certbot certonly --standalone -d ваш-домен.ru -d www.ваш-домен.ru
+   docker compose start nginx
+   ```
+
+   Файлы появятся в `/etc/letsencrypt/live/ваш-домен.ru/`.
+
+3. **Конфиг Nginx**  
+   - Скопируйте шаблон: `cp deploy/nginx-https.conf deploy/nginx.conf`  
+   - Замените **все** `YOUR_DOMAIN.ru` на ваш домен (например `autopartsdv.ru`), в том числе в путях к `fullchain.pem` и `privkey.pem`.
+
+4. **Запуск с HTTPS** (монтирование сертификатов + порт 443):
+
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.https.yml up -d
+   ```
+
+5. **Бэкенд и фронт**  
+   В **`server/.env`** укажите:
+
+   `FRONTEND_URL=https://ваш-домен.ru`  
+   (ровно тот адрес, с которого открывают сайт, **без** слэша в конце.)
+
+   Если API с того же хоста по пути `/api`, **пересборка `web` не обязательна**. Если когда-то задавали полный `NEXT_PUBLIC_API_URL` с `http://`, замените на `https://...` и выполните:
+
+   `docker compose build --no-cache web && docker compose up -d`
+
+6. **Продление**  
+   Certbot ставит cron/systemd-timer; при остановленном на 80 веб-сервере иногда используют `certbot renew --deploy-hook "docker compose -f ... restart nginx"` — настройте под свой путь к проекту.
+
+**Альтернатива:** SSL в панели хостинга/reg.ru (если сайт за их прокси) — тогда TLS может терминироваться **до** вашего VPS, а внутри остаётся HTTP; в этом случае уточняйте инструкции хостера и всё равно выставьте `FRONTEND_URL` на **публичный https://** адрес.
 
 ## 4. Playwright (парсинг поставщиков)
 
