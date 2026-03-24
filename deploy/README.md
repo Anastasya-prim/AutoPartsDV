@@ -39,6 +39,18 @@ docker compose logs -f api
 
 Базовый образ API **не** ставит Chromium. Если в проде нужен полный парсинг, расширяйте `server/Dockerfile` (зависимости Playwright / `npx playwright install-deps`) и увеличивайте лимиты RAM на VPS.
 
-## 5. Сборка `api`: timeout к `deb.debian.org`
+## 5. Поиск: «Unexpected token '<'… is not valid JSON» / «Пришла HTML-страница»
+
+Фронт ходит на **`NEXT_PUBLIC_API_URL` + путь** (например `/search`). Если в образе **`web`** при сборке была подставлена неверная база (часто `http://localhost/api` или забыли **`/api`**), браузер запрашивает **`http://ВАШ_IP/search`** — Nginx отдаёт **страницу Next**, не JSON.
+
+**Исправление:** в корне репозитория файл **`.env`**:
+
+`NEXT_PUBLIC_API_URL=http://ВАШ_IP/api` (или `https://домен/api`)
+
+Затем пересборка только фронта:
+
+`docker compose build --no-cache web && docker compose up -d`
+
+## 6. Сборка `api`: timeout к `deb.debian.org`
 
 Если `apt-get` в образе API падает с **Connection timed out** к официальным зеркалам Debian, в `server/Dockerfile` уже переключены репозитории на **mirror.yandex.ru**. При необходимости замените URL на другое зеркало (хостер, `ftp.ru.debian.org` и т.д.).

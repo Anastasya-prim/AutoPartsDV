@@ -80,11 +80,22 @@ export async function api<T = unknown>(path: string, opts: FetchOptions = {}): P
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  const data = await res.json();
+  const raw = await res.text();
+  let data: unknown;
+  try {
+    data = raw ? JSON.parse(raw) : {};
+  } catch {
+    const hint =
+      raw.trimStart().startsWith("<")
+        ? " Пришла HTML-страница вместо JSON: чаще всего NEXT_PUBLIC_API_URL без суффикса /api (запрос уходит на Next.js, а не на бэкенд). Пересоберите образ web с NEXT_PUBLIC_API_URL=http://ВАШ_ХОСТ/api"
+        : "";
+    throw new Error(`Ответ сервера не JSON.${hint}`);
+  }
 
   if (!res.ok) {
-    const msg = data.message || data.error || `Ошибка ${res.status}`;
-    throw new Error(Array.isArray(msg) ? msg.join(', ') : msg);
+    const errBody = data as { message?: unknown; error?: unknown };
+    const msg = errBody.message || errBody.error || `Ошибка ${res.status}`;
+    throw new Error(Array.isArray(msg) ? msg.join(", ") : String(msg));
   }
 
   return data as T;
