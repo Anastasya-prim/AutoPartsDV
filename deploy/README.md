@@ -38,3 +38,7 @@ docker compose logs -f api
 ## 4. Playwright (парсинг поставщиков)
 
 Базовый образ API **не** ставит Chromium. Если в проде нужен полный парсинг, расширяйте `server/Dockerfile` (зависимости Playwright / `npx playwright install-deps`) и увеличивайте лимиты RAM на VPS.
+
+## 5. Сборка `api`: timeout к `deb.debian.org`
+
+Если `apt-get` в образе API падает с **Connection timed out** к официальным зеркалам Debian, в `server/Dockerfile` уже переключены репозитории на **mirror.yandex.ru**. При необходимости замените URL на другое зеркало (хостер, `ftp.ru.debian.org` и т.д.).
