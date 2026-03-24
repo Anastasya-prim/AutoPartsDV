@@ -15,6 +15,9 @@ services:
       - sqlite_data:/app/data
     expose:
       - "4000"
+    # Диагностика 502: curl http://127.0.0.1:4000/api/health с хоста VPS (минуя Nginx)
+    ports:
+      - "127.0.0.1:4000:4000"
 
   web:
     build:
