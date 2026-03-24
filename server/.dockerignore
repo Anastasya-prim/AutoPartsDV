@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+*.db
+.env
+coverage
+test
+*.spec.ts
+e2e

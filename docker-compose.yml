@@ -1,0 +1,43 @@
+# Запуск: скопируйте server/.env.example → server/.env, задайте JWT_SECRET и FRONTEND_URL.
+# В корне (опционально) файл .env с NEXT_PUBLIC_API_URL для сборки фронта — см. deploy/env.example
+services:
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./server/.env
+    environment:
+      DATABASE_URL: file:./data/autoparts.db
+      PORT: "4000"
+    volumes:
+      - sqlite_data:/app/data
+    expose:
+      - "4000"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost/api}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+    expose:
+      - "3000"
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - web
+      - api
+
+volumes:
+  sqlite_data: {}

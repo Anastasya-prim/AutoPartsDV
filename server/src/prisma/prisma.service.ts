@@ -13,12 +13,19 @@ import { PrismaClient } from '../generated/prisma/client';
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import * as path from 'path';
 
+/** URL для SQLite: из DATABASE_URL (Docker: file:./data/autoparts.db) или файл в корне server/ */
+function sqliteFileUrl(): string {
+  const fromEnv = process.env.DATABASE_URL?.trim();
+  if (fromEnv?.startsWith('file:')) {
+    return fromEnv;
+  }
+  return `file:${path.join(process.cwd(), 'autoparts.db')}`;
+}
+
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   constructor() {
-    // Путь к файлу БД — autoparts.db в корне папки server/
-    const dbPath = path.join(process.cwd(), 'autoparts.db');
-    const adapter = new PrismaBetterSqlite3({ url: `file:${dbPath}` });
+    const adapter = new PrismaBetterSqlite3({ url: sqliteFileUrl() });
     super({ adapter });
   }
 

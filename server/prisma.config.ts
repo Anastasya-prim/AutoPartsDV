@@ -9,6 +9,6 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: "file:./autoparts.db",
+    url: process.env.DATABASE_URL || "file:./autoparts.db",
   },
 });
