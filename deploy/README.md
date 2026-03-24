@@ -49,6 +49,22 @@ curl -sS http://127.0.0.1/api/suppliers | head -c 300
 
 `server/.env`: **`FRONTEND_URL`** должен совпадать с тем, как открываете сайт (`http://IP` без слэша в конце).
 
-## 6. Сборка `api`: timeout к `deb.debian.org`
+## 6. Nginx: 502 Bad Gateway на `/api/...`
+
+Nginx до контейнера **`api`** не подключился или процесс Nest не слушает сеть.
+
+1. **Пересоберите `api`** (важно исправление `listen(0.0.0.0)`):  
+   `docker compose build --no-cache api && docker compose up -d`
+
+2. Логи: `docker compose logs api --tail 80` — часто нет **`JWT_SECRET`**, падение **Prisma migrate**, ошибка старта.
+
+3. Из контейнера **nginx** до **api**:  
+   `docker compose exec nginx wget -qO- http://api:4000/api/health`  
+   Ожидается JSON `{"ok":true}`. Если не выходит — сеть Docker или Nest не запущен.
+
+4. С хоста через Nginx:  
+   `curl -sS http://127.0.0.1/api/health`
+
+## 7. Сборка `api`: timeout к `deb.debian.org`
 
 Если `apt-get` в образе API падает с **Connection timed out** к официальным зеркалам Debian, в `server/Dockerfile` уже переключены репозитории на **mirror.yandex.ru**. При необходимости замените URL на другое зеркало (хостер, `ftp.ru.debian.org` и т.д.).

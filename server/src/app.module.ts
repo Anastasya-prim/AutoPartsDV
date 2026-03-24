@@ -17,8 +17,10 @@ import { HistoryModule } from './history/history.module';
 import { ProfileModule } from './profile/profile.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { MailModule } from './mail/mail.module';
+import { HealthController } from './health.controller';
 
 @Module({
+  controllers: [HealthController],
   imports: [
     // ConfigModule читает .env и делает переменные доступными через ConfigService
     ConfigModule.forRoot({ isGlobal: true }),
