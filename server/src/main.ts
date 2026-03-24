@@ -51,4 +51,7 @@ async function bootstrap() {
   await app.listen(PORT, '0.0.0.0');
   console.log(`\nNestJS сервер запущен: http://0.0.0.0:${PORT}`);
 }
-bootstrap();
+bootstrap().catch((err) => {
+  console.error('[bootstrap]', err);
+  process.exit(1);
+});

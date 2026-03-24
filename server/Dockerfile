@@ -24,10 +24,12 @@ COPY prisma.config.ts ./
 COPY nest-cli.json tsconfig.json ./
 COPY src ./src
 COPY public ./public
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
 
 RUN npx prisma generate && npm run build
 
 ENV NODE_ENV=production
 EXPOSE 4000
 
-CMD ["sh", "-c", "mkdir -p data && npx prisma migrate deploy && node dist/src/main.js"]
+ENTRYPOINT ["./docker-entrypoint.sh"]
