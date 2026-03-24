@@ -42,7 +42,16 @@ export class BrowserPoolService implements OnModuleInit, OnModuleDestroy {
    */
   async newPage(): Promise<Page> {
     if (!this.browser) {
-      this.browser = await chromium.launch({ headless: true });
+      // В Docker без sandbox Chromium часто падает; без данных адаптеры с withPage дают 0 результатов.
+      this.browser = await chromium.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+        ],
+      });
     }
     const context = await this.browser.newContext({
       userAgent:
