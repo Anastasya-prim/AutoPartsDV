@@ -46,9 +46,9 @@ async function bootstrap() {
   // Раздаём public/ от корня приложения (и в dev, и в Docker: cwd = server/ или /app)
   app.useStaticAssets(path.join(process.cwd(), 'public'));
   
-  const PORT = process.env.PORT || 4000;
+  const PORT = Number(process.env.PORT) || 4000;
   // 0.0.0.0 — чтобы контейнер принимал соединения от Nginx/Docker-сети, не только localhost
   await app.listen(PORT, '0.0.0.0');
-  console.log(`\nNestJS сервер запущен: http://localhost:${PORT}`);
+  console.log(`\nNestJS сервер запущен: http://0.0.0.0:${PORT}`);
 }
 bootstrap();
