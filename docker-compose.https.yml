@@ -1,11 +1,5 @@
-# Подключение HTTPS: сертификаты Let's Encrypt с хоста VPS.
-#
-# Использование:
-#   1) Получите сертификат на сервере (certbot), см. deploy/README.md → раздел HTTPS.
-#   2) Подготовьте deploy/nginx.conf из deploy/nginx-https.conf (замените YOUR_DOMAIN.ru).
-#   3) Запуск:
-#        docker compose -f docker-compose.yml -f docker-compose.https.yml up -d
-#
+# Подключение: docker compose -f docker-compose.yml -f docker-compose.https.yml up -d
+# Нужны сертификаты в /etc/letsencrypt на хосте (certbot).
 services:
   nginx:
     ports:
