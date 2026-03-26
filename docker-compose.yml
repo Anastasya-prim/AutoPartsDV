@@ -1,5 +1,5 @@
-# Запуск: скопируйте server/.env.example → server/.env, задайте JWT_SECRET и FRONTEND_URL.
-# Корневой .env с NEXT_PUBLIC_API_URL нужен только если API на другом хосте (по умолчанию в образе /api)
+# Запуск: скопируйте server/.env.example → server/.env, задайте JWT_SECRET и FRONTEND_URL (origin сайта в браузере).
+# Опционально: корневой .env с NEXT_PUBLIC_API_URL=/api (см. .env.example). По умолчанию в образе web — /api, без IP.
 services:
   api:
     build:
