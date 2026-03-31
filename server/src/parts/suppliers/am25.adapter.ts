@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Page } from 'playwright';
 import { BrowserPoolService } from '../browser-pool.service';
 import { BaseSupplierAdapter } from './base.adapter';
 import { SupplierSearchResult } from './supplier-adapter.interface';
 
 /**
- * AM25 — am25.ru.
+ * ![1774958331998](image/am25.adapter/1774958331998.png) — am25.ru.
  *
  * Поиск: GET /price_items/search?oem={артикул}
  * В таблице — производитель, артикул, ссылка на карточку; цены и склады подгружаются на /products/{BRAND}/{ARTICLE}.html
@@ -16,10 +17,27 @@ export class Am25Adapter extends BaseSupplierAdapter {
   protected readonly displayName = 'AM25';
 
   private readonly siteUrl: string;
+  /** AM25 долго отдаёт таблицу поиска — отдельный лимит, иначе обрезает глобальный SUPPLIER_TIMEOUT_MS (15 с). */
+  private readonly am25TimeoutMs: number;
 
   constructor(config: ConfigService, browserPool: BrowserPoolService) {
     super(config, browserPool);
     this.siteUrl = config.get('AM25_URL', 'https://am25.ru');
+    this.am25TimeoutMs = parseInt(
+      config.get('AM25_TIMEOUT_MS', '60000'),
+      10,
+    );
+  }
+
+  /** Увеличенный таймаут страницы только для AM25. */
+  protected override async withPage<T>(fn: (page: Page) => Promise<T>): Promise<T> {
+    const page = await this.browserPool.newPage();
+    try {
+      page.setDefaultTimeout(this.am25TimeoutMs);
+      return await fn(page);
+    } finally {
+      await page.context().close();
+    }
   }
 
   protected async doSearch(article: string): Promise<SupplierSearchResult[]> {
@@ -41,7 +59,7 @@ export class Am25Adapter extends BaseSupplierAdapter {
             const rows = document.querySelectorAll('table tbody tr').length;
             return !waiting || rows > 0;
           },
-          { timeout: 45000 },
+          { timeout: this.am25TimeoutMs },
         );
       } catch {
         this.logger.warn(
@@ -49,7 +67,7 @@ export class Am25Adapter extends BaseSupplierAdapter {
         );
       }
 
-      await page.waitForTimeout(1500);
+      await page.waitForTimeout(3000);
 
       const searchHits = await page.evaluate(() => {
         const out: { href: string; brand: string; art: string; name: string }[] = [];
@@ -86,9 +104,9 @@ export class Am25Adapter extends BaseSupplierAdapter {
         try {
           await page.goto(fullUrl, {
             waitUntil: 'domcontentloaded',
-            timeout: this.timeoutMs,
+            timeout: this.am25TimeoutMs,
           });
-          await page.waitForTimeout(2500);
+          await page.waitForTimeout(3000);
 
           const offers = await page.evaluate((requestedRaw: string) => {
             const norm = (s: string) =>
