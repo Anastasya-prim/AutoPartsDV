@@ -8,7 +8,7 @@
  */
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 /** Примеры артикулов для быстрого запуска поиска */
@@ -17,18 +17,33 @@ const popularQueries = ["48157-33062", "90915-YZZD1", "04465-33471"];
 export default function HomePage() {
   const [query, setQuery] = useState("");
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
+  function goToSearch(raw: string) {
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+    startTransition(() => {
+      router.push(`/search?q=${encodeURIComponent(trimmed)}`);
+    });
+  }
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    if (query.trim()) {
-      router.push(`/search?q=${encodeURIComponent(query.trim())}`);
-    }
+    goToSearch(query);
   }
 
   return (
     <>
       <section className="bg-white py-16 sm:py-24 px-4">
         <div className="max-w-2xl mx-auto text-center">
+          {isPending && (
+            <div
+              className="fixed top-0 left-0 right-0 z-[100] h-1 bg-blue-100 overflow-hidden"
+              aria-hidden
+            >
+              <div className="search-indeterminate-bar h-full w-2/5 bg-blue-600" />
+            </div>
+          )}
           <h1 className="text-3xl sm:text-5xl font-extrabold text-gray-900 mb-3">
             Найди запчасть по лучшей цене
           </h1>
@@ -36,29 +51,53 @@ export default function HomePage() {
             Сравниваем цены и наличие у поставщиков Дальнего Востока
           </p>
 
-          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3 max-w-xl mx-auto">
+          <form
+            onSubmit={handleSearch}
+            aria-busy={isPending}
+            className={`flex flex-col sm:flex-row gap-3 max-w-xl mx-auto ${isPending ? "opacity-90" : ""}`}
+          >
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              disabled={isPending}
               placeholder="Артикул или название запчасти"
-              className="flex-1 px-4 py-3.5 rounded-xl border-2 border-gray-300 bg-gray-50 text-gray-900 text-lg placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100 transition-all"
+              className="flex-1 px-4 py-3.5 rounded-xl border-2 border-gray-300 bg-gray-50 text-gray-900 text-lg placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100 transition-all disabled:opacity-70"
             />
             <button
               type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3.5 rounded-xl transition-colors text-lg shrink-0"
+              disabled={isPending}
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-500 text-white font-bold px-8 py-3.5 rounded-xl transition-colors text-lg shrink-0 inline-flex items-center justify-center gap-2 min-w-[8.5rem]"
             >
-              Найти
+              {isPending ? (
+                <>
+                  <span
+                    className="inline-block size-5 border-2 border-white border-t-transparent rounded-full animate-spin"
+                    aria-hidden
+                  />
+                  <span>Идём…</span>
+                </>
+              ) : (
+                "Найти"
+              )}
             </button>
           </form>
+
+          {isPending && (
+            <p className="mt-4 text-sm text-blue-600" role="status" aria-live="polite">
+              Переход к поиску…
+            </p>
+          )}
 
           <div className="mt-5 flex flex-wrap justify-center gap-2 text-sm">
             <span className="text-gray-400">Примеры:</span>
             {popularQueries.map((q) => (
               <button
                 key={q}
-                onClick={() => router.push(`/search?q=${q}`)}
-                className="bg-gray-100 hover:bg-blue-100 hover:text-blue-700 text-gray-600 px-3 py-1 rounded-full transition-colors"
+                type="button"
+                disabled={isPending}
+                onClick={() => goToSearch(q)}
+                className="bg-gray-100 hover:bg-blue-100 hover:text-blue-700 disabled:opacity-50 text-gray-600 px-3 py-1 rounded-full transition-colors"
               >
                 {q}
               </button>

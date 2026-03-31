@@ -1,1 +1,15 @@
 @import "tailwindcss";
+
+/* Полоска «идёт поиск» на главной при переходе на /search */
+@keyframes search-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(280%);
+  }
+}
+
+.search-indeterminate-bar {
+  animation: search-indeterminate 1.15s ease-in-out infinite;
+}
