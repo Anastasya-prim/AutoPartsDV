@@ -86,16 +86,26 @@ export class AutoTradeAdapter extends BaseSupplierAdapter {
         `[${this.supplierId}] Найдено карточек: ${results.length}`,
       );
 
-      return results.map((r) => ({
-        brand: r.brand,
-        article: r.article || article,
-        name: r.name,
-        price: r.price,
-        quantity: r.quantity,
-        inStock: r.inStock,
-        deliveryDays: 0,
-        isAnalog: false,
-      }));
+      const reqNorm = article
+        .replace(/-/g, '')
+        .replace(/\s/g, '')
+        .toUpperCase();
+      return results.map((r) => {
+        const art = (r.article || '').trim();
+        const artNorm = art.replace(/-/g, '').replace(/\s/g, '').toUpperCase();
+        const isAnalog = artNorm.length > 0 && artNorm !== reqNorm;
+        return {
+          brand: r.brand,
+          article: art || article,
+          name: r.name,
+          price: r.price,
+          quantity: r.quantity,
+          inStock: r.inStock,
+          deliveryDays: 0,
+          isAnalog,
+          analogFor: isAnalog ? article : undefined,
+        };
+      });
     });
   }
 }

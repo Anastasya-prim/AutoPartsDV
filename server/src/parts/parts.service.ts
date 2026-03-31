@@ -90,21 +90,25 @@ export class PartsService {
 
   /**
    * Можно ли ответить только из SQLite без живого парсинга.
-   * Если в кэше есть свежие записи только от Autotrade и др., а AM25 в БД online —
-   * раньше мы всё равно не вызывали агрегатор, и AM25 никогда не появлялся в выдаче.
-   * Пока AM25 online — требуем хотя бы одну закэшированную запись с supplierId am25,
-   * иначе снова идём к поставщикам (если у AM25 реально 0 позиций, запрос будет повторяться до истечения TTL).
+   * Для поставщиков am25 и autotrade (скрейперы с разными артикулами в выдаче) требуем по одной строке
+   * в текущей выборке кэша. Иначе бывает: в БД попали только строки AM25 (name содержит OEM), а AutoTrade
+   * с артикулом ST-… не попал в contains — кэш считался полным и агрегатор не вызывался.
+   * Остальных онлайн-поставщиков здесь не перечисляем: у кого-то может быть 0 позиций по запросу.
    */
   private async canUseCachedSearchOnly(
     cached: Array<{ supplierId: string; updatedAt: Date }>,
   ): Promise<boolean> {
     if (!this.isCacheFresh(cached) || cached.length === 0) return false;
-    const am25 = await this.prisma.supplier.findUnique({
-      where: { id: 'am25' },
-      select: { status: true },
-    });
-    if (am25?.status !== 'online') return true;
-    return cached.some((p) => p.supplierId === 'am25');
+    const ids = ['am25', 'autotrade'] as const;
+    for (const id of ids) {
+      const s = await this.prisma.supplier.findUnique({
+        where: { id },
+        select: { status: true },
+      });
+      if (s?.status !== 'online') continue;
+      if (!cached.some((p) => p.supplierId === id)) return false;
+    }
+    return true;
   }
 
   /**
@@ -128,6 +132,8 @@ export class PartsService {
           { article: { contains: query } },
           { name: { contains: query } },
           { brand: { contains: query } },
+          { analogFor: { contains: query } },
+          { analogFor: { equals: query } },
         ],
       },
       include: { supplier: true },
@@ -144,7 +150,7 @@ export class PartsService {
         );
       } else {
         this.logger.log(
-          `Кэш свежий, но нет записей AM25 — запрашиваем поставщиков: "${query}"`,
+          `Кэш свежий, но не по всем онлайн-поставщикам — запрашиваем поставщиков: "${query}"`,
         );
       }
 
@@ -224,7 +230,7 @@ export class PartsService {
         );
       } else {
         this.logger.log(
-          `Кэш свежий, но нет записей AM25 — запрашиваем поставщиков: "${decoded}"`,
+          `Кэш свежий, но не по всем am25/autotrade — запрашиваем поставщиков: "${decoded}"`,
         );
       }
 
@@ -309,6 +315,12 @@ export class PartsService {
       if (!supplierExists) continue;
 
       const artToCache = r.article || searchedArticle;
+      const norm = (s: string) =>
+        s.replace(/-/g, '').replace(/\s/g, '').toUpperCase();
+      /** OEM из поиска, если артикул поставщика другой — чтобы findMany по analogFor находил строку при следующем запросе */
+      const analogFor =
+        r.analogFor ??
+        (norm(artToCache) !== norm(searchedArticle) ? searchedArticle : null);
       // Проверяем, есть ли уже такая запчасть от этого поставщика
       const existing = await this.prisma.part.findFirst({
         where: {
@@ -328,7 +340,7 @@ export class PartsService {
             inStock: r.inStock ? 1 : 0,
             deliveryDays: r.deliveryDays,
             isAnalog: r.isAnalog ? 1 : 0,
-            analogFor: r.analogFor || null,
+            analogFor,
             updatedAt: new Date(),
           },
         });
@@ -345,7 +357,7 @@ export class PartsService {
             inStock: r.inStock ? 1 : 0,
             deliveryDays: r.deliveryDays,
             isAnalog: r.isAnalog ? 1 : 0,
-            analogFor: r.analogFor || null,
+            analogFor,
           },
         });
       }
