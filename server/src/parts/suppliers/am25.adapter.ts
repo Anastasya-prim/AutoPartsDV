@@ -8,10 +8,12 @@ import { SupplierSearchResult } from './supplier-adapter.interface';
 /**
  * AM25 — am25.ru.
  *
- * Поиск: GET /price_items/search?oem={oem без пробелов и дефисов}.
- * Если номер встречается у нескольких производителей, показывается таблица выбора бренда
- * (#brand-selection-table, tr[data-url]) — переходим на первую карточку /products/…/….html?v2search=1&source_oem=…
- * Цены подгружаются в таблицу v2 (role="price-data-content-result-table", цена в .sale-price-content).
+ * Поиск: /price_items/search?oem={oem без дефисов}.
+ * При нескольких производителях — таблица #brand-selection-table, переход по tr[data-url].
+ * Цены в table[role="price-data-content-result-table"] (AJAX), извлекаем .sale-price-content.
+ *
+ * Важно: Nginx proxy_read_timeout для /api должен быть ≥ 90–120 с (см. deploy/nginx*.conf), иначе
+ * ответ обрежется, пока Playwright ждёт таблицу.
  */
 @Injectable()
 export class Am25Adapter extends BaseSupplierAdapter {
@@ -19,7 +21,6 @@ export class Am25Adapter extends BaseSupplierAdapter {
   protected readonly displayName = 'AM25';
 
   private readonly siteUrl: string;
-  /** AM25 долго отдаёт таблицу поиска — отдельный лимит, иначе обрезает глобальный SUPPLIER_TIMEOUT_MS (15 с). */
   private readonly am25TimeoutMs: number;
 
   constructor(config: ConfigService, browserPool: BrowserPoolService) {
@@ -31,12 +32,10 @@ export class Am25Adapter extends BaseSupplierAdapter {
     );
   }
 
-  /** OEM для query-параметра search: как на сайте, без дефисов и пробелов. */
   private static normalizeOemForSearch(article: string): string {
     return article.replace(/[\s-]/g, '');
   }
 
-  /** Увеличенный таймаут страницы только для AM25. */
   protected override async withPage<T>(fn: (page: Page) => Promise<T>): Promise<T> {
     const page = await this.browserPool.newPage();
     try {
@@ -47,7 +46,6 @@ export class Am25Adapter extends BaseSupplierAdapter {
     }
   }
 
-  /** Ждём конца прелоадера и появления либо таблицы выбора бренда, либо таблицы цен. */
   private async waitForAm25SearchUi(page: Page): Promise<void> {
     try {
       await page.waitForFunction(
@@ -63,20 +61,22 @@ export class Am25Adapter extends BaseSupplierAdapter {
       );
     } catch {
       this.logger.warn(
-        `[${this.supplierId}] Таймаут ожидания UI поиска — продолжаем с текущим DOM`,
+        `[${this.supplierId}] Таймаут ожидания UI поиска — продолжаем`,
       );
     }
   }
 
-  /** Если открыта промежуточная страница выбора производителя — переход на карточку товара с ценами. */
+  /**
+   * Промежуточная страница: выбор бренда. source_oem — как в браузере (часто с дефисами).
+   */
   private async openProductPageFromBrandTable(
     page: Page,
     base: string,
-    sourceOem: string,
+    sourceOemForUrl: string,
   ): Promise<void> {
     const brandRow = await page.$('#brand-selection-table tr[data-url^="/products/"]');
     const hasPriceAlready = await page.$(
-      'table[role="price-data-content-result-table"] .sale-price-content, table[role="price-data-content-result-table"] .b-f2-price .sale-price-content',
+      'table[role="price-data-content-result-table"] .sale-price-content',
     );
     if (!brandRow || hasPriceAlready) return;
 
@@ -90,27 +90,30 @@ export class Am25Adapter extends BaseSupplierAdapter {
 
     const productUrl = new URL(dataUrl, base);
     if (!productUrl.searchParams.has('source_oem')) {
-      productUrl.searchParams.set('source_oem', sourceOem);
+      productUrl.searchParams.set('source_oem', sourceOemForUrl);
     }
     this.logger.debug(
       `[${this.supplierId}] выбор бренда → ${productUrl.pathname}${productUrl.search}`,
     );
-    await page.goto(productUrl.toString(), { waitUntil: 'load' });
+    await page.goto(productUrl.toString(), { waitUntil: 'domcontentloaded' });
   }
 
-  /** Дождаться строк с ценами (таблица v2 подгружается по AJAX). */
-  private async waitForPriceRows(page: Page): Promise<void> {
+  /** Одно ожидание: таблица результатов + появились цены (AJAX). */
+  private async waitForPriceTableReady(page: Page): Promise<void> {
+    await page
+      .waitForSelector('table[role="price-data-content-result-table"]', {
+        timeout: this.am25TimeoutMs,
+      })
+      .catch(() => undefined);
+
     try {
-      await page.waitForFunction(
-        () =>
-          !!document.querySelector(
-            'table[role="price-data-content-result-table"] .sale-price-content, table[role="price-data-content-result-table"] .b-f2-price .sale-price-content',
-          ),
+      await page.waitForSelector(
+        'table[role="price-data-content-result-table"] .sale-price-content',
         { timeout: this.am25TimeoutMs },
       );
     } catch {
       this.logger.warn(
-        `[${this.supplierId}] Нет блоков с ценой (.sale-price-content) в таблице`,
+        `[${this.supplierId}] Нет .sale-price-content за ${this.am25TimeoutMs}ms`,
       );
     }
   }
@@ -125,19 +128,14 @@ export class Am25Adapter extends BaseSupplierAdapter {
       const searchUrl = `${base}/price_items/search?oem=${encodeURIComponent(oemSearch)}`;
 
       this.logger.debug(`[${this.supplierId}] ${searchUrl}`);
-      await page.goto(searchUrl, { waitUntil: 'load' });
+      await page.goto(searchUrl, { waitUntil: 'domcontentloaded' });
 
       await this.waitForAm25SearchUi(page);
-      await this.openProductPageFromBrandTable(page, base, oemSearch);
+      // Как на сайте: source_oem с дефисами (если пользователь так ввёл)
+      await this.openProductPageFromBrandTable(page, base, q);
 
-      await page
-        .waitForSelector('table[role="price-data-content-result-table"]', {
-          timeout: this.am25TimeoutMs,
-        })
-        .catch(() => undefined);
-
-      await this.waitForPriceRows(page);
-      await page.waitForTimeout(1500);
+      await this.waitForPriceTableReady(page);
+      await new Promise((r) => setTimeout(r, 800));
 
       const merged = await page.evaluate((requestedRaw: string) => {
         const norm = (s: string) =>
@@ -170,7 +168,9 @@ export class Am25Adapter extends BaseSupplierAdapter {
         );
         if (!table) return out;
 
-        for (const tr of table.querySelectorAll('tbody tr')) {
+        const rowIter = table.querySelectorAll('tbody tr');
+
+        for (const tr of rowIter) {
           if (tr.getAttribute('role') === 'cross_group_cap') continue;
 
           const priceSpan = tr.querySelector<HTMLElement>(
@@ -244,8 +244,8 @@ export class Am25Adapter extends BaseSupplierAdapter {
       }, q);
 
       if (merged.length === 0) {
-        this.logger.debug(
-          `[${this.supplierId}] Нет строк с ценой в table[role=price-data-content-result-table]`,
+        this.logger.warn(
+          `[${this.supplierId}] Парсер вернул 0 строк (проверьте таймауты Nginx и AM25_TIMEOUT_MS)`,
         );
       }
 
