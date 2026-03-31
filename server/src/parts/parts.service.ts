@@ -89,6 +89,25 @@ export class PartsService {
   }
 
   /**
+   * Можно ли ответить только из SQLite без живого парсинга.
+   * Если в кэше есть свежие записи только от Autotrade и др., а AM25 в БД online —
+   * раньше мы всё равно не вызывали агрегатор, и AM25 никогда не появлялся в выдаче.
+   * Пока AM25 online — требуем хотя бы одну закэшированную запись с supplierId am25,
+   * иначе снова идём к поставщикам (если у AM25 реально 0 позиций, запрос будет повторяться до истечения TTL).
+   */
+  private async canUseCachedSearchOnly(
+    cached: Array<{ supplierId: string; updatedAt: Date }>,
+  ): Promise<boolean> {
+    if (!this.isCacheFresh(cached) || cached.length === 0) return false;
+    const am25 = await this.prisma.supplier.findUnique({
+      where: { id: 'am25' },
+      select: { status: true },
+    });
+    if (am25?.status !== 'online') return true;
+    return cached.some((p) => p.supplierId === 'am25');
+  }
+
+  /**
    * Поиск запчастей по текстовому запросу (артикул, бренд или название).
    * Вызывается из GET /api/search?q=...
    * @param q      — поисковый запрос от пользователя
@@ -114,14 +133,20 @@ export class PartsService {
       include: { supplier: true },
     });
 
-    // Шаг 2: если кэш свежий — сразу возвращаем, не тратим время на парсинг сайтов
-    if (this.isCacheFresh(cached)) {
+    // Шаг 2: если кэш свежий и полный (см. canUseCachedSearchOnly) — без парсинга
+    if (await this.canUseCachedSearchOnly(cached)) {
       this.logger.log(`Кэш актуален для "${query}" — ${cached.length} записей`);
       results = cached.map((p) => this.formatDbResult(p));
     } else {
-      this.logger.log(
-        `Кэш пуст или устарел для "${query}" — запрашиваем поставщиков`,
-      );
+      if (!this.isCacheFresh(cached) || cached.length === 0) {
+        this.logger.log(
+          `Кэш пуст или устарел для "${query}" — запрашиваем поставщиков`,
+        );
+      } else {
+        this.logger.log(
+          `Кэш свежий, но нет записей AM25 — запрашиваем поставщиков: "${query}"`,
+        );
+      }
 
       try {
         // Шаг 3: запрашиваем все поставщики параллельно через агрегатор
@@ -188,14 +213,20 @@ export class PartsService {
       include: { supplier: true },
     });
 
-    if (this.isCacheFresh(cached)) {
+    if (await this.canUseCachedSearchOnly(cached)) {
       const formatted = cached.map((p) => this.formatDbResult(p));
       offers = formatted.filter((r) => !r.isAnalog);
       analogs = formatted.filter((r) => r.isAnalog);
     } else {
-      this.logger.log(
-        `Кэш пуст или устарел для артикула "${decoded}" — запрашиваем поставщиков`,
-      );
+      if (!this.isCacheFresh(cached) || cached.length === 0) {
+        this.logger.log(
+          `Кэш пуст или устарел для артикула "${decoded}" — запрашиваем поставщиков`,
+        );
+      } else {
+        this.logger.log(
+          `Кэш свежий, но нет записей AM25 — запрашиваем поставщиков: "${decoded}"`,
+        );
+      }
 
       try {
         const { results: liveResults, supplierStatuses: statuses } =
