@@ -8,6 +8,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Header from "./header";
+import { YandexMetrika } from "@/components/yandex-metrika";
 
 export const metadata: Metadata = {
   title: "AutoPartsDV — агрегатор автозапчастей Дальнего Востока",
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Header />
         <main className="flex-1">{children}</main>
         <Footer />
+        <YandexMetrika />
       </body>
     </html>
   );

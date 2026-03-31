@@ -16,6 +16,10 @@ RUN mkdir -p public
 ARG NEXT_PUBLIC_API_URL=/api
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
+# Яндекс.Метрика (номер счётчика из metrika.yandex.ru)
+ARG NEXT_PUBLIC_YM_ID=
+ENV NEXT_PUBLIC_YM_ID=${NEXT_PUBLIC_YM_ID}
+
 RUN npm run build
 
 FROM node:22-bookworm-slim AS runner
