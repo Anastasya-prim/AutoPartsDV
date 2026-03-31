@@ -28,7 +28,7 @@ async function main() {
     { id: 'autotrade', name: 'AutoTrade', url: 'https://autotrade.su',    region: 'Уссурийск',   status: 'online',      apiType: 'api' },
     { id: 'tiss',      name: 'TISS',      url: 'https://my.tiss.ru',      region: 'Владивосток', status: 'online',      apiType: 'api' },
     { id: 'autobiz',   name: 'AutoBiz',   url: 'https://autobiz.ru',      region: 'Владивосток', status: 'online',      apiType: 'api' },
-    { id: 'am25',      name: 'AM25',      url: 'https://am25.ru',         region: 'Владивосток', status: 'maintenance', apiType: 'scraper' },
+    { id: 'am25',      name: 'AM25',      url: 'https://am25.ru',         region: 'Владивосток', status: 'online',      apiType: 'scraper' },
     { id: 'trustauto', name: 'TrustAuto', url: 'https://trustautovl.ru',  region: 'Владивосток', status: 'online',      apiType: 'scraper' },
   ];
 
