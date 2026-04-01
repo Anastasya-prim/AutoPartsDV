@@ -29,13 +29,13 @@ docker compose logs -f api
 
 ## 3. HTTPS (Let’s Encrypt + Nginx в Docker)
 
-**Полная пошаговая инструкция** (DNS, certbot, правка `nginx.conf`, `FRONTEND_URL`, проверки, продление, откат, reg.ru): **[HTTPS-SETUP.md](./HTTPS-SETUP.md)**.
+**Полная пошаговая инструкция** (DNS, certbot, **`NGINX_CONF` в корневом `.env`**, `FRONTEND_URL`, проверки, продление, откат, reg.ru): **[HTTPS-SETUP.md](./HTTPS-SETUP.md)**.
 
 Кратко:
 
 1. Нужен **домен** с записью **A** на IP VPS (не только IP).
 2. `docker compose stop nginx` → на хосте **`certbot certonly --standalone -d домен`** → сертификаты в `/etc/letsencrypt/live/домен/`.
-3. `cp deploy/nginx-https.conf deploy/nginx.conf` → заменить все **`YOUR_DOMAIN.ru`** на ваш домен (можно `sed -i 's/YOUR_DOMAIN.ru/домен/g' deploy/nginx.conf`).
+3. В **корне репозитория** создайте файл **`.env`** (в `.gitignore`, в git не попадает): строка **`NGINX_CONF=./deploy/nginx.autopartsdv.space.conf`** — конфиг с `listen 443` подключается **без** ручного `cp`, и **`git pull`** не перезаписывает ваш HTTPS. Для домена **не** `autopartsdv.space` скопируйте шаблон из `deploy/nginx-https.conf`, сохраните как свой файл в `deploy/`, пропишите пути к сертификатам и **`NGINX_CONF=./deploy/ваш-файл.conf`**.
 4. Запуск: **`docker compose -f docker-compose.yml -f docker-compose.https.yml up -d`**.
 5. В **`server/.env`**: **`FRONTEND_URL=https://ваш-домен`** (без `/` в конце), перезапуск **`api`**. При старом **`NEXT_PUBLIC_API_URL`** с `http://` — исправить и пересобрать **`web`**.
 

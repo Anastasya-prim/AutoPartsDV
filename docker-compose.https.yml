@@ -1,5 +1,9 @@
 # Подключение: docker compose -f docker-compose.yml -f docker-compose.https.yml up -d
 # Нужны сертификаты в /etc/letsencrypt на хосте (certbot).
+#
+# Конфиг Nginx с listen 443 задаётся через корневой .env (не в git):
+#   NGINX_CONF=./deploy/nginx.autopartsdv.space.conf
+# Тогда не нужно cp в deploy/nginx.conf — git pull не ломает HTTPS.
 services:
   nginx:
     ports:

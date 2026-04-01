@@ -171,35 +171,42 @@ docker compose up -d
 
 ## Этап 4. Конфигурация Nginx для HTTPS
 
-### 4.1. Скопируйте шаблон
+Не используйте **`cp … deploy/nginx.conf`** — этот путь конфликтует с **`git pull`**. Вместо этого в **корне репозитория** создайте **`.env`** (файл в `.gitignore`) со строкой, указывающей на конфиг с **`listen 443`**:
 
 ```bash
 cd /путь/к/AutoPartsDV
-cp deploy/nginx-https.conf deploy/nginx.conf
+echo 'NGINX_CONF=./deploy/nginx.autopartsdv.space.conf' >> .env
 ```
 
-### 4.2. Замените placeholder домена
+Если домен **не** `autopartsdv.space` / `www.autopartsdv.space`, подготовьте свой файл:
 
-В файле **`deploy/nginx.conf`** везде указано **`YOUR_DOMAIN.ru`**. Его нужно заменить на **ваш** домен **точно так**, как в каталоге `/etc/letsencrypt/live/...`.
-
-Удобно через `sed` (замените `example.ru`):
+### 4.1. Шаблон и домен
 
 ```bash
-sed -i 's/YOUR_DOMAIN.ru/example.ru/g' deploy/nginx.conf
+cp deploy/nginx-https.conf deploy/nginx.mydomain.conf
+sed -i 's/YOUR_DOMAIN.ru/example.ru/g' deploy/nginx.mydomain.conf
 ```
 
-Проверьте глазами:
+В **`deploy/nginx.mydomain.conf`** проверьте пути к сертификатам (`ssl_certificate` → `/etc/letsencrypt/live/...`).
+
+В **`.env`** в корне:
 
 ```bash
-grep -n "example.ru" deploy/nginx.conf
-grep -n "letsencrypt" deploy/nginx.conf
+NGINX_CONF=./deploy/nginx.mydomain.conf
+```
+
+Проверьте:
+
+```bash
+grep -n "example.ru" deploy/nginx.mydomain.conf
+grep -n "letsencrypt" deploy/nginx.mydomain.conf
 ```
 
 **Если сертификат вы выпускали только на `example.ru` без `www`:**
 
 - В `server_name` и в редиректе с HTTP уберите `www.example.ru`, оставьте только `example.ru`, **или** выпустите сертификат заново с `-d example.ru -d www.example.ru`.
 
-### 4.3. Проверка синтаксиса Nginx (опционально)
+### 4.2. Проверка синтаксиса Nginx (опционально)
 
 ```bash
 docker compose run --rm --no-deps nginx nginx -t
@@ -313,7 +320,7 @@ sudo certbot renew --deploy-hook 'cd /путь/к/AutoPartsDV && docker compose 
 
 ## Откат на HTTP
 
-1. Верните прежний **`deploy/nginx.conf`** (только HTTP из истории git или бэкап).
+1. В корневом **`.env`** удалите строку **`NGINX_CONF=...`** (или закомментируйте) — подставится **`deploy/nginx.http.conf`** (только порт 80).
 2. Запускайте без второго файла: `docker compose up -d`.
 3. В **`server/.env`** снова `FRONTEND_URL=http://...`.
 4. Перезапустите `api`.
@@ -325,7 +332,7 @@ sudo certbot renew --deploy-hook 'cd /путь/к/AutoPartsDV && docker compose 
 - [ ] DNS **A** на IP VPS проверен (`dig`).
 - [ ] Порты **80** и **443** открыты.
 - [ ] `docker compose stop nginx` → certbot `--standalone` → сертификат в `/etc/letsencrypt/live/домен/`.
-- [ ] `deploy/nginx.conf` из `nginx-https.conf`, домен заменён везде.
+- [ ] В корневом **`.env`**: **`NGINX_CONF=./deploy/...conf`** (HTTPS), либо готовый **`nginx.autopartsdv.space.conf`** для этого домена.
 - [ ] `docker compose -f docker-compose.yml -f docker-compose.https.yml up -d`.
 - [ ] `FRONTEND_URL=https://...` в `server/.env`, перезапуск `api`.
 - [ ] При необходимости исправлен `NEXT_PUBLIC_API_URL` и пересобран `web`.
