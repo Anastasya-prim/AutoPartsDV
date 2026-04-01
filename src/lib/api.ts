@@ -105,7 +105,7 @@ export async function api<T = unknown>(path: string, opts: FetchOptions = {}): P
   } catch {
     const hint =
       raw.trimStart().startsWith("<")
-        ? " Пришла HTML вместо JSON: на VPS выполните curl -sS http://127.0.0.1/api/suppliers | head -c 200 — должен быть JSON. Если HTML — проверьте docker compose ps и логи api/nginx. Обновите: git pull && docker compose build --no-cache && docker compose up -d. В браузере: жёсткое обновление (Ctrl+Shift+R)."
+        ? " Пришла HTML вместо JSON (часто Nginx 504: долгий поиск /api — увеличьте proxy_read_timeout для location /api до 300s, см. deploy/nginx*.conf). Или проверка: curl -sS http://127.0.0.1:4000/api/suppliers | head -c 200. docker compose ps, логи api/nginx. git pull, пересборка. В браузере: Ctrl+Shift+R."
         : "";
     throw new Error(`Ответ сервера не JSON.${hint}`);
   }
