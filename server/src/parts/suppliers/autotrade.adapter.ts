@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Page } from 'playwright';
 import { BrowserPoolService } from '../browser-pool.service';
 import { BaseSupplierAdapter } from './base.adapter';
 import { SupplierSearchResult } from './supplier-adapter.interface';
@@ -17,10 +18,26 @@ export class AutoTradeAdapter extends BaseSupplierAdapter {
   protected readonly displayName = 'AutoTrade';
 
   private readonly siteUrl: string;
+  /** Параллельно с AM25 на одном Chromium 15 с часто не хватает — отдельный лимит. */
+  private readonly autotradeTimeoutMs: number;
 
   constructor(config: ConfigService, browserPool: BrowserPoolService) {
     super(config, browserPool);
     this.siteUrl = config.get('AUTOTRADE_URL', 'https://autotrade.su/vladivostok');
+    this.autotradeTimeoutMs = parseInt(
+      config.get('AUTOTRADE_TIMEOUT_MS', '60000'),
+      10,
+    );
+  }
+
+  protected override async withPage<T>(fn: (page: Page) => Promise<T>): Promise<T> {
+    const page = await this.browserPool.newPage();
+    try {
+      page.setDefaultTimeout(this.autotradeTimeoutMs);
+      return await fn(page);
+    } finally {
+      await page.context().close();
+    }
   }
 
   /**
@@ -37,7 +54,7 @@ export class AutoTradeAdapter extends BaseSupplierAdapter {
 
       this.logger.debug(`[${this.supplierId}] Переход: ${searchUrl}`);
       await page.goto(searchUrl, { waitUntil: 'domcontentloaded' });
-      await page.waitForTimeout(3000);
+      await new Promise((r) => setTimeout(r, 3000));
 
       const results = await page.evaluate(() => {
         const items: any[] = [];

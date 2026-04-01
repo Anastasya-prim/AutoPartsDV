@@ -7,7 +7,8 @@
  * Базовый класс предоставляет:
  * - Логирование с замером времени (search → doSearch обёртка)
  * - Управление страницей браузера (withPage — создаёт и закрывает страницу)
- * - Таймаут из .env (SUPPLIER_TIMEOUT_MS, по умолчанию 15 секунд)
+ * - Таймаут из .env (SUPPLIER_TIMEOUT_MS, по умолчанию 60 с — при параллельном
+ *   запуске нескольких Playwright-поставщиков 15 с часто недостаточно)
  */
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -30,7 +31,7 @@ export abstract class BaseSupplierAdapter implements SupplierAdapter {
     protected readonly browserPool: BrowserPoolService,
   ) {
     this.logger = new Logger(this.constructor.name);
-    this.timeoutMs = parseInt(config.get('SUPPLIER_TIMEOUT_MS', '15000'), 10);
+    this.timeoutMs = parseInt(config.get('SUPPLIER_TIMEOUT_MS', '60000'), 10);
   }
 
   /**
