@@ -70,6 +70,8 @@ export abstract class BaseSupplierAdapter implements SupplierAdapter {
     const page = await this.browserPool.newPage();
     try {
       page.setDefaultTimeout(this.timeoutMs);
+      // У page.goto свой лимит; без этого часто остаётся 30s по умолчанию Playwright
+      page.setDefaultNavigationTimeout(this.timeoutMs);
       return await fn(page);
     } finally {
       await page.context().close();

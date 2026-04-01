@@ -26,8 +26,9 @@ export class Am25Adapter extends BaseSupplierAdapter {
   constructor(config: ConfigService, browserPool: BrowserPoolService) {
     super(config, browserPool);
     this.siteUrl = config.get('AM25_URL', 'https://am25.ru');
+    // VPS за пределами РФ до am25.ru часто >30s; Playwright по умолчанию рубит навигацию на 30s без setDefaultNavigationTimeout
     this.am25TimeoutMs = parseInt(
-      config.get('AM25_TIMEOUT_MS', '60000'),
+      config.get('AM25_TIMEOUT_MS', '120000'),
       10,
     );
   }
@@ -40,6 +41,7 @@ export class Am25Adapter extends BaseSupplierAdapter {
     const page = await this.browserPool.newPage();
     try {
       page.setDefaultTimeout(this.am25TimeoutMs);
+      page.setDefaultNavigationTimeout(this.am25TimeoutMs);
       return await fn(page);
     } finally {
       await page.context().close();
@@ -95,7 +97,10 @@ export class Am25Adapter extends BaseSupplierAdapter {
     this.logger.debug(
       `[${this.supplierId}] выбор бренда → ${productUrl.pathname}${productUrl.search}`,
     );
-    await page.goto(productUrl.toString(), { waitUntil: 'domcontentloaded' });
+    await page.goto(productUrl.toString(), {
+      waitUntil: 'domcontentloaded',
+      timeout: this.am25TimeoutMs,
+    });
   }
 
   /** Одно ожидание: таблица результатов + появились цены (AJAX). */
@@ -128,7 +133,10 @@ export class Am25Adapter extends BaseSupplierAdapter {
       const searchUrl = `${base}/price_items/search?oem=${encodeURIComponent(oemSearch)}`;
 
       this.logger.debug(`[${this.supplierId}] ${searchUrl}`);
-      await page.goto(searchUrl, { waitUntil: 'domcontentloaded' });
+      await page.goto(searchUrl, {
+        waitUntil: 'domcontentloaded',
+        timeout: this.am25TimeoutMs,
+      });
 
       await this.waitForAm25SearchUi(page);
       // Как на сайте: source_oem с дефисами (если пользователь так ввёл)
