@@ -54,6 +54,9 @@ export class BrowserPoolService implements OnModuleInit, OnModuleDestroy {
       });
     }
     const context = await this.browser.newContext({
+      // В Alpine/Docker у Chromium часто урезанный набор CA → net::ERR_CERT_AUTHORITY_INVALID
+      // на части HTTPS-сайтов. Для скрейпинга известных URL это приемлемо.
+      ignoreHTTPSErrors: true,
       userAgent:
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     });
