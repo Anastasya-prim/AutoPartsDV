@@ -4,7 +4,8 @@
  * Когда пользователь ищет запчасть, этот сервис:
  * 1. Берёт список поставщиков из БД
  * 2. Для каждого «онлайн» поставщика находит соответствующий адаптер
- * 3. Запускает ВСЕ адаптеры параллельно (Promise.allSettled)
+ * 3. Запускает лёгкие адаптеры параллельно; AM25 и AutoTrade — по очереди
+ *    (один Chromium в пуле, иначе гонка и таймауты).
  * 4. Собирает результаты и статусы (ok / error / skipped) в один ответ
  *
  * Если один поставщик упал — остальные всё равно вернут данные.
@@ -64,15 +65,18 @@ export class SupplierAggregatorService {
     ]);
   }
 
-  /** Запускает поиск по всем поставщикам параллельно и собирает результаты */
+  /** Поставщики с тяжёлым Playwright — не параллелим между собой */
+  private static readonly BROWSER_HEAVY_IDS = new Set(['am25', 'autotrade']);
+
+  /** Запускает поиск по всем поставщикам и собирает результаты */
   async searchAll(article: string): Promise<AggregatedResponse> {
     const suppliers = await this.prisma.supplier.findMany();
     const statuses: SupplierStatus[] = [];
     const allResults: Array<SupplierSearchResult & { supplierId: string }> = [];
 
-    // Для каждого поставщика из БД запускаем его адаптер
-    const promises = suppliers.map(async (supplier) => {
-      // Пропускаем неактивных поставщиков (например, на обслуживании)
+    const runOne = async (
+      supplier: (typeof suppliers)[number],
+    ): Promise<void> => {
       if (supplier.status !== 'online') {
         statuses.push({
           supplierId: supplier.id,
@@ -84,7 +88,6 @@ export class SupplierAggregatorService {
         return;
       }
 
-      // Ищем адаптер для этого поставщика по его ID
       const adapter = this.adapters.get(supplier.id);
       if (!adapter) {
         this.logger.warn(`Нет адаптера для поставщика "${supplier.id}" — пропуск`);
@@ -129,10 +132,19 @@ export class SupplierAggregatorService {
           error: message,
         });
       }
-    });
+    };
 
-    // allSettled — ждём ВСЕ промисы, даже если какие-то упали с ошибкой
-    await Promise.allSettled(promises);
+    const lightSuppliers = suppliers.filter(
+      (s) => !SupplierAggregatorService.BROWSER_HEAVY_IDS.has(s.id),
+    );
+    const heavyOrdered = (['am25', 'autotrade'] as const)
+      .map((id) => suppliers.find((s) => s.id === id))
+      .filter((s): s is (typeof suppliers)[number] => s != null);
+
+    await Promise.allSettled(lightSuppliers.map((s) => runOne(s)));
+    for (const s of heavyOrdered) {
+      await runOne(s);
+    }
 
     this.logger.log(
       `Агрегация завершена: ${allResults.length} результатов от ` +

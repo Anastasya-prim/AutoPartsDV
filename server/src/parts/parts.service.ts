@@ -1,13 +1,8 @@
 /**
  * PartsService — главный сервис бизнес-логики поиска запчастей.
  *
- * Алгоритм работы (для search и findByArticle):
- * 1. Сначала ищем в локальной БД (кэш) — это быстро
- * 2. Если кэш свежий (не старше CACHE_TTL_MINUTES) — возвращаем его
- * 3. Если кэш устарел или пуст — запрашиваем данные у поставщиков
- *    через SupplierAggregatorService (парсинг сайтов через Playwright)
- * 4. Полученные результаты сохраняем в БД в фоне (для будущих запросов)
- * 5. Если поставщики не ответили — возвращаем старый кэш (лучше, чем ничего)
+ * GET /api/search: всегда опрос поставщиков; кэш только как fallback при пустом ответе или ошибке.
+ * GET /api/parts/:article: при свежем полном кэше (am25+autotrade) — из БД; иначе агрегатор и фоновое сохранение.
  */
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -125,7 +120,8 @@ export class PartsService {
     let supplierStatuses: SupplierStatus[] = [];
     let results: any[] = [];
 
-    // Шаг 1: ищем в локальной БД (кэше) по артикулу, названию или бренду
+    // Кэш для fallback, если агрегатор вернёт пусто или упадёт (не отвечаем только из кэша —
+    // иначе contains по name/article даёт ложные «полные» выборки и пропадают поставщики).
     const cached = await this.prisma.part.findMany({
       where: {
         OR: [
@@ -139,45 +135,27 @@ export class PartsService {
       include: { supplier: true },
     });
 
-    // Шаг 2: если кэш свежий и полный (см. canUseCachedSearchOnly) — без парсинга
-    if (await this.canUseCachedSearchOnly(cached)) {
-      this.logger.log(`Кэш актуален для "${query}" — ${cached.length} записей`);
-      results = cached.map((p) => this.formatDbResult(p));
-    } else {
-      if (!this.isCacheFresh(cached) || cached.length === 0) {
-        this.logger.log(
-          `Кэш пуст или устарел для "${query}" — запрашиваем поставщиков`,
+    this.logger.log(`Поиск "${query}": всегда опрос поставщиков; в кэше ${cached.length} строк для fallback`);
+
+    try {
+      const { results: liveResults, supplierStatuses: statuses } =
+        await this.aggregator.searchAll(query);
+      supplierStatuses = statuses;
+
+      if (liveResults.length > 0) {
+        const supplierInfo = await this.getSupplierMap();
+        results = liveResults.map((r) =>
+          this.formatAggregatorResult(r, supplierInfo),
         );
+        this.cacheResultsInBackground(liveResults, query);
       } else {
-        this.logger.log(
-          `Кэш свежий, но не по всем онлайн-поставщикам — запрашиваем поставщиков: "${query}"`,
-        );
-      }
-
-      try {
-        // Шаг 3: запрашиваем все поставщики параллельно через агрегатор
-        const { results: liveResults, supplierStatuses: statuses } =
-          await this.aggregator.searchAll(query);
-        supplierStatuses = statuses;
-
-        if (liveResults.length > 0) {
-          const supplierInfo = await this.getSupplierMap();
-          results = liveResults.map((r) =>
-            this.formatAggregatorResult(r, supplierInfo),
-          );
-
-          // Шаг 4: сохраняем в БД в фоне — не блокируем ответ пользователю
-          this.cacheResultsInBackground(liveResults, query);
-        } else {
-          // Поставщики ничего не нашли — вернём старый кэш, если был
-          results = cached.map((p) => this.formatDbResult(p));
-        }
-      } catch (err) {
-        this.logger.error(
-          `Ошибка агрегации для "${query}": ${err instanceof Error ? err.message : err}`,
-        );
         results = cached.map((p) => this.formatDbResult(p));
       }
+    } catch (err) {
+      this.logger.error(
+        `Ошибка агрегации для "${query}": ${err instanceof Error ? err.message : err}`,
+      );
+      results = cached.map((p) => this.formatDbResult(p));
     }
 
     // Разделяем результаты: точные совпадения и аналоги (заменители)
