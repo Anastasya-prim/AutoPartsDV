@@ -4,10 +4,14 @@
  */
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { StructuredLoggerService } from '../common/logging/structured-logger.service';
 
 @Injectable()
 export class SuppliersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly structuredLog: StructuredLoggerService,
+  ) {}
 
   async findAll() {
     const suppliers = await this.prisma.supplier.findMany();
@@ -15,14 +19,20 @@ export class SuppliersService {
   }
 
   async create(data: any) {
-    return this.prisma.supplier.create({ data });
+    const created = await this.prisma.supplier.create({ data });
+    this.structuredLog.logBusiness('supplier_created', { supplierId: created.id });
+    return created;
   }
 
   async update(id: string, data: any) {
-    return this.prisma.supplier.update({ where: { id }, data });
+    const updated = await this.prisma.supplier.update({ where: { id }, data });
+    this.structuredLog.logBusiness('supplier_updated', { supplierId: id });
+    return updated;
   }
 
   async remove(id: string) {
-    return this.prisma.supplier.delete({ where: { id } });
+    const removed = await this.prisma.supplier.delete({ where: { id } });
+    this.structuredLog.logBusiness('supplier_deleted', { supplierId: id });
+    return removed;
   }
 }

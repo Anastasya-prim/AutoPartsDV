@@ -18,10 +18,12 @@ import { ProfileModule } from './profile/profile.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { MailModule } from './mail/mail.module';
 import { HealthController } from './health.controller';
+import { LoggingModule } from './common/logging/logging.module';
 
 @Module({
   controllers: [HealthController],
   imports: [
+    LoggingModule,
     // ConfigModule читает .env и делает переменные доступными через ConfigService
     ConfigModule.forRoot({ isGlobal: true }),
 

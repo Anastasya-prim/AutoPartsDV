@@ -10,11 +10,15 @@ import { Controller, Get, Put, Body, UseGuards, Request, NotFoundException } fro
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { StructuredLoggerService } from '../common/logging/structured-logger.service';
 
 @Controller('api/profile')
 @UseGuards(JwtAuthGuard)
 export class ProfileController {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly structuredLog: StructuredLoggerService,
+  ) {}
 
   @Get()
   async getProfile(@Request() req) {
@@ -37,6 +41,12 @@ export class ProfileController {
       data,
       select: { id: true, name: true, email: true, role: true, registeredAt: true },
     });
+
+    this.structuredLog.logBusiness('profile_updated', {
+      userId: req.user.userId,
+      fields: Object.keys(data),
+    });
+
     return user;
   }
 }

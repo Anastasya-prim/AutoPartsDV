@@ -15,6 +15,7 @@ import { MailService } from '../mail/mail.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { StructuredLoggerService } from '../common/logging/structured-logger.service';
 import * as bcrypt from 'bcryptjs';
 
 @Controller('api/auth')
@@ -25,6 +26,7 @@ export class AuthController {
     private authService: AuthService,
     private prisma: PrismaService,
     private mailService: MailService,
+    private readonly structuredLog: StructuredLoggerService,
   ) {}
 
   @Post('register')
@@ -55,6 +57,10 @@ export class AuthController {
 
     // Fire-and-forget: уведомление о смене пароля не блокирует ответ
     this.mailService.sendPasswordChanged(user.email, user.name).catch(() => {});
+
+    this.structuredLog.logBusiness('password_changed', {
+      userId: req.user.userId,
+    });
 
     return { message: 'Пароль успешно изменён' };
   }

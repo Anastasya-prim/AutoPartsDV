@@ -7,10 +7,14 @@
  */
 import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { StructuredLoggerService } from '../common/logging/structured-logger.service';
 
 @Injectable()
 export class HistoryService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly structuredLog: StructuredLoggerService,
+  ) {}
 
   async findAll(userId: string) {
     const history = await this.prisma.searchHistory.findMany({
@@ -22,6 +26,7 @@ export class HistoryService {
 
   async clear(userId: string) {
     await this.prisma.searchHistory.deleteMany({ where: { userId } });
+    this.structuredLog.logBusiness('search_history_cleared', { userId });
     return { message: 'История очищена' };
   }
 
@@ -31,6 +36,10 @@ export class HistoryService {
     if (item.userId !== userId) throw new ForbiddenException();
 
     await this.prisma.searchHistory.delete({ where: { id } });
+    this.structuredLog.logBusiness('search_history_entry_deleted', {
+      userId,
+      entryId: id,
+    });
     return { message: 'Запись удалена' };
   }
 }

@@ -2,15 +2,60 @@ import 'dotenv/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { AppModule } from '../src/app.module';
+import { SupplierAggregatorService } from '../src/parts/supplier-aggregator.service';
+import type { AggregatedResponse } from '../src/parts/supplier-aggregator.service';
 import * as request from 'supertest';
 
 let app: INestApplication;
 let token: string;
 
+/** Быстрый ответ без Playwright — для стабильных API-тестов. */
+function mockAggregator(): Pick<SupplierAggregatorService, 'searchAll'> {
+  return {
+    searchAll: async (article: string): Promise<AggregatedResponse> => {
+      const q = article.trim();
+      return {
+        results: [
+          {
+            supplierId: 'rossko',
+            brand: 'TOYOTA',
+            article: q,
+            name: 'Тестовая деталь',
+            price: 1000,
+            quantity: 1,
+            inStock: true,
+            deliveryDays: 0,
+            isAnalog: false,
+          },
+          {
+            supplierId: 'mxgroup',
+            brand: 'FEBEST',
+            article: 'TSB-ACR50F',
+            name: 'Аналог тест',
+            price: 500,
+            quantity: 2,
+            inStock: true,
+            deliveryDays: 1,
+            isAnalog: true,
+            analogFor: q,
+          },
+        ],
+        supplierStatuses: [
+          { supplierId: 'rossko', status: 'ok', responseTimeMs: 1, resultsCount: 1 },
+          { supplierId: 'mxgroup', status: 'ok', responseTimeMs: 1, resultsCount: 1 },
+        ],
+      };
+    },
+  };
+}
+
 beforeAll(async () => {
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
-  }).compile();
+  })
+    .overrideProvider(SupplierAggregatorService)
+    .useValue(mockAggregator())
+    .compile();
 
   app = moduleFixture.createNestApplication();
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
